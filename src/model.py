@@ -94,37 +94,53 @@ class FFNN:
     def compute_loss(self, predictions, targets):
         return self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
     
+    def _to_one_hot(self, y, num_classes=None):
+        """Convert class indices to one-hot encoding"""
+        if num_classes is None:
+            num_classes = self.output_size
+        one_hot = np.zeros((y.shape[0], num_classes))
+        one_hot[np.arange(y.shape[0]), y] = 1
+        return one_hot
+
     def backward(self, X, y):
         """
         Implement backward pass with backpropagation
         X: input data (batch_size, input_size)
-        y: true labels (batch_size, output_size) - one-hot encoded
+        y: true labels (batch_size,) - class indices OR (batch_size, output_size) - one-hot encoded
         """
         m = X.shape[0]  # batch size
+        
+        # Convert y to one-hot if it's class indices
+        if y.ndim == 1:
+            y_one_hot = self._to_one_hot(y)
+        else:
+            y_one_hot = y
         
         # Initialize gradients
         dW = [np.zeros_like(w) for w in self.weights]
         db = [np.zeros_like(b) for b in self.biases]
         
         # Compute output layer error (assuming softmax + cross-entropy loss)
-        if self._loss == 'cross_entropy':
-            # For softmax + cross-entropy, the gradient is simply (predictions - targets)
+        if self._loss == 'mse':
+            # For MSE loss
             predictions = self.activations[-1]  # Output layer activations
+            dZ = predictions - y_one_hot  # Now both have same shape
+        else:
+            # For other losses (like cross-entropy), compute gradient manually
+            predictions = self.activations[-1]
             # Apply softmax to get probabilities
             exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
             probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-            
-            # Gradient of loss w.r.t. output layer
-            dZ = probs - y  # (batch_size, output_size)
-        else:
-            # For other losses, compute gradient manually
-            predictions = self.activations[-1]
-            dZ = predictions - y
+            dZ = probs - y_one_hot  # Now both have same shape
         
         # Backpropagate through all layers
         for i in reversed(range(len(self.weights))):
             # Current layer activations (input to this layer)
             A_prev = self.activations[i]  # Previous layer activations
+            
+            # Ensure dZ has the right shape for matrix multiplication
+            if dZ.ndim == 1:
+                dZ = dZ.reshape(1, -1)
             
             # Compute gradients for weights and biases
             dW[i] = (1/m) * np.dot(A_prev.T, dZ)
@@ -218,7 +234,7 @@ class FFNN:
                 # Update weights
                 self.update_weights(dW, db)
             
-            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {loss}")
+            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {loss} Accuracy: {self.evaluate(X_train, y_train)}")
             # Forward pass
             predictions = self.forward(X_batch)
             # Compute loss

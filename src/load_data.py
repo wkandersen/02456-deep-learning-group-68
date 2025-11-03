@@ -35,24 +35,30 @@ class CIFAR10Loader:
             all_labels.extend(labels)
 
         # Convert to numpy arrays
-        self.images = np.concatenate(all_data)
-        self.labels = np.array(all_labels)
+        self.train_images = np.concatenate(all_data)
+        self.train_labels = np.array(all_labels)
 
         # Load class label names
         meta = self._unpickle("data/cifar-10-batches-py/batches.meta")
         self.decoded_labels = [label.decode('utf-8') for label in meta[b'label_names']]
 
-        print(f"Combined data shape: {self.images.shape}")
-        print(f"Combined labels shape: {self.labels.shape}")
+        # print(f"Combined data shape: {self.images.shape}")
+        # print(f"Combined labels shape: {self.labels.shape}")
 
-        
-    
+        test = self._unpickle('data/cifar-10-batches-py/test_batch')
+        self.test_images = test[b'data']
+        self.test_labels = np.array(test[b'labels'])
+
+
+
     def get_data(self):
-        return self.images, self.labels, self.decoded_labels
+        return self.train_images, self.train_labels, self.decoded_labels
 
+    def get_training_data(self):
+        return self.train_images, self.train_labels
 
-
-
+    def get_test_data(self):
+        return self.test_images, self.test_labels
 
     ###                  ###
     ### Display an image ###
@@ -87,3 +93,14 @@ class CIFAR10Loader:
 # print(decoded_labels)       # ['airplane', 'automobile', ..., 'truck']
 
 # loader.display(1)           # Show image 0
+
+
+
+dataloader = CIFAR10Loader()
+train_images, train_labels = dataloader.get_training_data()
+test_images, test_labels = dataloader.get_test_data()
+
+print(f"Training data shape: {train_images.shape}")
+print(f"Training labels shape: {train_labels.shape}")
+print(f"Test data shape: {test_images.shape}")
+print(f"Test labels shape: {test_labels.shape}")

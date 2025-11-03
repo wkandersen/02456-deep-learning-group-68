@@ -13,7 +13,7 @@ class loss_function:
         return (prediction - target) ** 2
 
     def compute_MSE_loss(self, predictions, targets, weights=None):
-        loss = ((predictions - targets) ** 2).mean()
+        loss = ((predictions[0] - targets[0]) ** 2).mean()
 
         if self.use_regularization and weights is not None:
             l2_norm = self.l2_norm(weights)
