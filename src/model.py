@@ -2,6 +2,7 @@ from loss_function import loss_function
 import numpy as np
 
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
+
 class FFNN:
     def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10):
         self.num_epochs = num_epochs
@@ -56,6 +57,15 @@ class FFNN:
         elif self.activation == 'tanh':
             return np.tanh(x)
 
+    def _activation_derivative(self, x):
+        if self.activation == 'relu':
+            return (x > 0).astype(float)
+        elif self.activation == 'sigmoid':
+            sigmoid_x = 1 / (1 + np.exp(-x))
+            return sigmoid_x * (1 - sigmoid_x)
+        elif self.activation == 'tanh':
+            return 1 - np.tanh(x) ** 2
+
     def forward(self, X):
         self.activations = []
         self.z_values = []
@@ -80,3 +90,161 @@ class FFNN:
         self.z_values.append(z)
         self.activations.append(z)  # No activation function at output layer
         return z
+    
+    def compute_loss(self, predictions, targets):
+        return self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
+    
+    def backward(self, X, y):
+        """
+        Implement backward pass with backpropagation
+        X: input data (batch_size, input_size)
+        y: true labels (batch_size, output_size) - one-hot encoded
+        """
+        m = X.shape[0]  # batch size
+        
+        # Initialize gradients
+        dW = [np.zeros_like(w) for w in self.weights]
+        db = [np.zeros_like(b) for b in self.biases]
+        
+        # Compute output layer error (assuming softmax + cross-entropy loss)
+        if self._loss == 'cross_entropy':
+            # For softmax + cross-entropy, the gradient is simply (predictions - targets)
+            predictions = self.activations[-1]  # Output layer activations
+            # Apply softmax to get probabilities
+            exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
+            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+            
+            # Gradient of loss w.r.t. output layer
+            dZ = probs - y  # (batch_size, output_size)
+        else:
+            # For other losses, compute gradient manually
+            predictions = self.activations[-1]
+            dZ = predictions - y
+        
+        # Backpropagate through all layers
+        for i in reversed(range(len(self.weights))):
+            # Current layer activations (input to this layer)
+            A_prev = self.activations[i]  # Previous layer activations
+            
+            # Compute gradients for weights and biases
+            dW[i] = (1/m) * np.dot(A_prev.T, dZ)
+            db[i] = (1/m) * np.sum(dZ, axis=0, keepdims=True)
+            
+            # Add L2 regularization to weight gradients
+            if self.l2_coeff > 0:
+                dW[i] += self.l2_coeff * self.weights[i]
+            
+            # Compute gradient for previous layer (if not the input layer)
+            if i > 0:
+                # Gradient w.r.t. previous layer activations
+                dA_prev = np.dot(dZ, self.weights[i].T)
+                
+                # Gradient w.r.t. previous layer pre-activations (z values)
+                z_prev = self.z_values[i-1]  # Pre-activation values of previous layer
+                dZ = dA_prev * self._activation_derivative(z_prev)
+        
+        return dW, db
+    
+    def update_weights(self, dW, db):
+        """
+        Update weights and biases using computed gradients
+        """
+        if self.optimizer == 'sgd':
+            # Stochastic Gradient Descent
+            for i in range(len(self.weights)):
+                self.weights[i] -= self.lr * dW[i]
+                self.biases[i] -= self.lr * db[i]
+                
+        elif self.optimizer == 'adam':
+            # Adam optimizer (simplified version)
+            # Initialize momentum terms if not already done
+            if not hasattr(self, 'v_dW'):
+                self.v_dW = [np.zeros_like(w) for w in self.weights]
+                self.v_db = [np.zeros_like(b) for b in self.biases]
+                self.s_dW = [np.zeros_like(w) for w in self.weights]
+                self.s_db = [np.zeros_like(b) for b in self.biases]
+                self.t = 0  # time step
+            
+            self.t += 1
+            beta1, beta2 = 0.9, 0.999
+            epsilon = 1e-8
+            
+            for i in range(len(self.weights)):
+                # Update momentum
+                self.v_dW[i] = beta1 * self.v_dW[i] + (1 - beta1) * dW[i]
+                self.v_db[i] = beta1 * self.v_db[i] + (1 - beta1) * db[i]
+                
+                # Update squared gradients
+                self.s_dW[i] = beta2 * self.s_dW[i] + (1 - beta2) * (dW[i] ** 2)
+                self.s_db[i] = beta2 * self.s_db[i] + (1 - beta2) * (db[i] ** 2)
+                
+                # Bias correction
+                v_dW_corrected = self.v_dW[i] / (1 - beta1 ** self.t)
+                v_db_corrected = self.v_db[i] / (1 - beta1 ** self.t)
+                s_dW_corrected = self.s_dW[i] / (1 - beta2 ** self.t)
+                s_db_corrected = self.s_db[i] / (1 - beta2 ** self.t)
+                
+                # Update weights
+                self.weights[i] -= self.lr * v_dW_corrected / (np.sqrt(s_dW_corrected) + epsilon)
+                self.biases[i] -= self.lr * v_db_corrected / (np.sqrt(s_db_corrected) + epsilon)
+        
+        else:
+            # Default to SGD if optimizer not recognized
+            for i in range(len(self.weights)):
+                self.weights[i] -= self.lr * dW[i]
+                self.biases[i] -= self.lr * db[i]
+        
+    def train(self, X_train, y_train):
+        num_samples = X_train.shape[0]
+        for epoch in range(self.num_epochs):
+            # Shuffle the data at the beginning of each epoch
+            perm = np.random.permutation(num_samples)
+            X_train_shuffled = X_train[perm]
+            y_train_shuffled = y_train[perm]
+            
+            for i in range(0, num_samples, self.batch_size):
+                X_batch = X_train_shuffled[i:i+self.batch_size]
+                y_batch = y_train_shuffled[i:i+self.batch_size]
+                
+                # Forward pass
+                predictions = self.forward(X_batch)
+                
+                # Compute loss
+                loss = self.compute_loss(predictions, y_batch)
+                
+                # Backward pass
+                dW, db = self.backward(X_batch, y_batch)
+                
+                # Update weights
+                self.update_weights(dW, db)
+            
+            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {loss}")
+            # Forward pass
+            predictions = self.forward(X_batch)
+            # Compute loss
+            loss = self.compute_loss(predictions, y_batch)
+            # Backward pass
+            dW, db = self.backward(X_batch, y_batch)
+            # Update weights
+            self.update_weights(dW, db)
+
+    def validate(self, X_val, y_val):
+        preds = self.predict(X_val)
+        accuracy = np.mean(preds == y_val)
+        loss = self.compute_loss(self.forward(X_val), y_val)
+        print(f"Validation Loss: {loss}, Accuracy: {accuracy}")
+        return accuracy, loss
+
+    def predict(self, X):
+        # with softmax
+        logits = self.forward(X)
+        exp_scores = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+        probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+        return np.argmax(probs, axis=1)
+
+    def evaluate(self, X, y):
+        preds = self.predict(X)
+        accuracy = np.mean(preds == y)
+        return accuracy
+    
+    

@@ -14,3 +14,13 @@ for _, label in trainset:
     class_counts[trainset.classes[label]] += 1
 for cls, count in class_counts.items():
     print(f"  {cls}: {count}")
+
+print(f"Training data shape: {trainset.data.shape}")
+print(f"Test data shape: {testset.data.shape}")
+
+# Show first image
+import matplotlib.pyplot as plt
+
+plt.imshow(trainset.data[0])
+plt.title(trainset.classes[trainset.targets[0]])
+plt.show()
