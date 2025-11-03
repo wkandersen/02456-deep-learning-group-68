@@ -1,0 +1,56 @@
+# WandB Sweep Configuration for Deep Learning Experiment
+program: model.py
+project: "deep-learning-project"
+entity: "s224225"
+
+# Sweep Configuration
+method: bayes  # Options: grid, random, bayes
+metric:
+  name: val_accuracy
+  goal: maximize
+
+# Parameter Search Space
+parameters:
+  num_epochs:
+    values: [30, 50, 100]
+  
+  learning_rate:
+    distribution: log_uniform_values
+    min: 0.0001
+    max: 0.01
+  
+  batch_size:
+    values: [32, 64, 128, 256]
+  
+  optimizer:
+    values: ["adam", "sgd", "rmsprop"]
+  
+  l2_coeff:
+    distribution: log_uniform_values
+    min: 0.00001
+    max: 0.01
+  
+  num_hidden_layers:
+    values: [2, 3, 4]
+  
+  n_hidden_units:
+    values: [
+      [256, 128],
+      [512, 256, 128],
+      [1024, 512, 256],
+      [512, 256, 128, 64]
+    ]
+  
+  activation:
+    values: ["relu", "tanh", "leaky_relu"]
+  
+  weights_init:
+    values: ["xavier", "he", "normal"]
+  
+  loss:
+    value: "cross_entropy"  # Fixed parameter
+
+# Early termination
+early_terminate:
+  type: hyperband
+  min_iter: 10
