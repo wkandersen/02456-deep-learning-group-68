@@ -6,4 +6,18 @@ class loss_function:
         self.eps = eps
         self.use_regularization = use_regularization
 
-    def compute_loss():
+    def l2_norm(self, weights):
+        return sum((w ** 2).sum() for w in weights)
+
+    def MSE_single(self, prediction, target):
+        return (prediction - target) ** 2
+
+    def compute_MSE_loss(self, predictions, targets, weights=None):
+        loss = ((predictions - targets) ** 2).mean()
+
+        if self.use_regularization and weights is not None:
+            l2_norm = self.l2_norm(weights)
+            loss += self.lam * l2_norm
+
+        return loss
+    
