@@ -1,118 +1,83 @@
+from torchvision import datasets
 import numpy as np
-import os
-import pickle
+
+class DataLoader:
+    def __init__(self, root='./data', validation_split=0.1):
+        self.trainset = datasets.CIFAR10(root=root, train=True, download=True)
+        self.testset = datasets.CIFAR10(root=root, train=False, download=True)
+        self.validation_split = validation_split
+        self.val_size = int(len(self.trainset) * self.validation_split)
 
 
-class CIFAR10Loader:
-    def __init__(self, data_dir='data/cifar-10-batches-py'):
-        self.data_dir = data_dir
-        self.images = None
-        self.labels = None
-        self.decoded_labels = None
-        self._load_data()
+    def get_validation_data(self):
+        # Using part of the training set as validation set
+        self.val_size = int(len(self.trainset) * self.validation_split)
+        val_data = self.trainset.data[:self.val_size]
+        val_targets = self.trainset.targets[:self.val_size]
+        return val_data, val_targets
 
-
-    # Data loader
-    def _unpickle(self, file):
-        with open(file, 'rb') as fo:
-            dict = pickle.load(fo, encoding='bytes')
-        return dict
-
-    def _load_data(self):
-        ###                             ###
-        ### Combine dataset batches 1-5 ###
-        ###                             ###
-        # Initialize lists to hold all data and labels
-        all_data = []
-        all_labels = []
-
-        # Load and combine all 5 batches
-        for i in range(2, 6):
-            batch = self._unpickle(f'data/cifar-10-batches-py/data_batch_{i}')
-            data = batch[b'data']
-            labels = batch[b'labels']
-            all_data.append(data)
-            all_labels.extend(labels)
-
-        # Convert to numpy arrays
-        self.train_images = np.concatenate(all_data)
-        self.train_labels = np.array(all_labels)
-
-        # Load class label names
-        meta = self._unpickle("data/cifar-10-batches-py/batches.meta")
-        self.decoded_labels = [label.decode('utf-8') for label in meta[b'label_names']]
-
-        # print(f"Combined data shape: {self.images.shape}")
-        # print(f"Combined labels shape: {self.labels.shape}")
-
-        test = self._unpickle('data/cifar-10-batches-py/test_batch')
-        self.test_images = test[b'data']
-        self.test_labels = np.array(test[b'labels'])
-
-
-    def get_validation_data(self, batch_number="data_batch_1"):
-
-        # Load the specified batch
-        batch = self._unpickle(f'data/cifar-10-batches-py/{batch_number}')
-        self.val_images = batch[b'data']
-        self.val_labels = np.array(batch[b'labels'])
-        return self.val_images, self.val_labels
-
-    def get_data(self):
-        return self.train_images, self.train_labels, self.decoded_labels
-
-    def get_training_data(self):
-        return self.train_images, self.train_labels
-
+    def get_train_data(self):
+        train_data = self.trainset.data[self.val_size:]
+        train_targets = self.trainset.targets[self.val_size:]
+        return train_data, train_targets
+    
     def get_test_data(self):
-        return self.test_images, self.test_labels
-
-    ###                  ###
-    ### Display an image ###
-    ###                  ###
-    def display(self, img_num: int):
-        import matplotlib.pyplot as plt
-        # Access the first image and label
-        first_image = self.images[img_num]            # a 3072-length array
-        first_label = self.labels[img_num]            # an integer label
-
-        # Reshape the image: 3072 = 1024 R + 1024 G + 1024 B
-        r = first_image[0:1024].reshape(32, 32)
-        g = first_image[1024:2048].reshape(32, 32)
-        b = first_image[2048:].reshape(32, 32)
-
-        # Stack channels to form RGB image
-        img = np.stack([r, g, b], axis=2)
-
-        plt.imshow(img)
-        plt.title(f"Label: {self.decoded_labels[first_label]}")
-        plt.show()
+        return self.testset.data, self.testset.targets
+    
+    def get_class_names(self):
+        """Get the list of class names"""
+        return self.trainset.classes
+    
+    def get_num_classes(self):
+        """Get the number of classes"""
+        return len(self.trainset.classes)
+    
+    def print_class_info(self):
+        """Print information about classes"""
+        class_names = self.get_class_names()
+        print(f"Number of classes: {len(class_names)}")
+        print("Class names:")
+        for i, class_name in enumerate(class_names):
+            print(f"  {i}: {class_name}")
+        return class_names
 
 
 
-## How to use the class.
+if __name__ == "__main__":
+    data_loader = DataLoader()
+    train_images, train_labels = data_loader.get_train_data()
+    test_images, test_labels = data_loader.get_test_data()
+    val_images, val_labels = data_loader.get_validation_data()
+    
+    # Get class names
+    class_names = data_loader.get_class_names()
+    print(f"Class names: {class_names}")
+    
+    print(f"Unique classes in dataset: {len(np.unique(train_labels))}")
+    print(f"Training samples: {len(train_images)}")
+    print(f"Test samples: {len(test_images)}")
+    print(f"Validation samples: {len(val_images)}")
 
-# loader = CIFAR10Loader()
-# images, labels, decoded_labels = loader.get_data()
+    # Print class information
+    data_loader.print_class_info()
 
-# print(images.shape)         # (50000, 3072)
-# print(labels.shape)         # (50000,)
-# print(decoded_labels)       # ['airplane', 'automobile', ..., 'truck']
+    print(f"Training per class distribution:")
+    class_counts = {cls: 0 for cls in np.unique(train_labels)}
+    for label in train_labels:
+        class_counts[label] += 1
+    for cls, count in class_counts.items():
+        class_name = class_names[cls] if cls < len(class_names) else f"Unknown_{cls}"
+        print(f"  {cls} ({class_name}): {count}")
 
-# loader.display(1)           # Show image 0
+    print(f"Training data shape: {train_images.shape}")
+    print(f"Test data shape: {test_images.shape}")
+    print(f"Validation data shape: {val_images.shape}")
 
+    # Show first image with class name
+    import matplotlib.pyplot as plt
 
-
-dataloader = CIFAR10Loader()
-train_images, train_labels = dataloader.get_training_data()
-test_images, test_labels = dataloader.get_test_data()
-validation_images, validation_labels = dataloader.get_validation_data()
-
-
-
-print(f"Training data shape: {train_images.shape}")
-print(f"Training labels shape: {train_labels.shape}")
-print(f"Validation data shape: {validation_images.shape}")
-print(f"Validation labels shape: {validation_labels.shape}")
-print(f"Test data shape: {test_images.shape}")
-print(f"Test labels shape: {test_labels.shape}")
+    plt.imshow(train_images[0])
+    first_label = train_labels[0]
+    class_name = class_names[first_label]
+    plt.title(f"Class {first_label}: {class_name}")
+    plt.show()

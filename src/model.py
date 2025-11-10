@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
 class FFNN:
-    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10):
+    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0):
         self.num_epochs = num_epochs
         self.hidden_layers = hidden_layers  # Now a list like [512, 128, 64]
         self.num_hidden_layers = len(hidden_layers)  # Number of layers derived from list length
@@ -20,8 +20,8 @@ class FFNN:
         self.output_size = output_size  # CIFAR-10: 10 classes
         self.weights = []
         self.biases = []
-        self.batch_norm = False  # Initialize batch norm flag
-        self.dropout_prob = 0.0  # Initialize dropout probability
+        self.batch_norm = batch_norm  # Initialize batch norm flag
+        self.dropout_prob = dropout_prob  # Initialize dropout probability
         self._initialize_weights()
         self.loss_function = loss_function(_loss)
         self.activations = []
@@ -99,7 +99,48 @@ class FFNN:
         return z
     
     def compute_loss(self, predictions, targets):
-        return self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
+        """
+        Compute loss based on the specified loss function
+        """
+        # Convert targets to one-hot if needed
+        if targets.ndim == 1:
+            targets_one_hot = self._to_one_hot(targets)
+        else:
+            targets_one_hot = targets
+            
+        if self._loss == 'cross_entropy':
+            # Cross-entropy loss with softmax
+            # Apply softmax to predictions
+            exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
+            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+            
+            # Compute cross-entropy loss
+            # Avoid log(0) by adding small epsilon
+            eps = 1e-15
+            probs = np.clip(probs, eps, 1 - eps)
+            loss = -np.mean(np.sum(targets_one_hot * np.log(probs), axis=1))
+            
+            # Add L2 regularization if specified
+            if self.l2_coeff > 0:
+                l2_penalty = self.l2_coeff * sum(np.sum(w**2) for w in self.weights)
+                loss += l2_penalty
+                
+        elif self._loss == 'mse':
+            # Use the existing MSE loss function
+            loss = self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
+        else:
+            # Default to cross-entropy
+            exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
+            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+            eps = 1e-15
+            probs = np.clip(probs, eps, 1 - eps)
+            loss = -np.mean(np.sum(targets_one_hot * np.log(probs), axis=1))
+            
+            if self.l2_coeff > 0:
+                l2_penalty = self.l2_coeff * sum(np.sum(w**2) for w in self.weights)
+                loss += l2_penalty
+        
+        return loss
     
     def _to_one_hot(self, y, num_classes=None):
         """Convert class indices to one-hot encoding"""
@@ -127,18 +168,24 @@ class FFNN:
         dW = [np.zeros_like(w) for w in self.weights]
         db = [np.zeros_like(b) for b in self.biases]
         
-        # Compute output layer error (assuming softmax + cross-entropy loss)
-        if self._loss == 'mse':
-            # For MSE loss
-            predictions = self.activations[-1]  # Output layer activations
-            dZ = predictions - y_one_hot  # Now both have same shape
-        else:
-            # For other losses (like cross-entropy), compute gradient manually
-            predictions = self.activations[-1]
-            # Apply softmax to get probabilities
+        # Compute output layer error based on the loss function being used
+        predictions = self.activations[-1]  # Output layer activations (logits)
+        
+        if self._loss == 'cross_entropy':
+            # For cross-entropy with softmax, gradient is: softmax(predictions) - y_one_hot
             exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
             probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-            dZ = probs - y_one_hot  # Now both have same shape
+            dZ = probs - y_one_hot
+        elif self._loss == 'mse':
+            # For MSE loss, gradient is: predictions - y_one_hot
+            # Note: This assumes no activation on output layer for regression
+            # For classification with MSE, you might want softmax first
+            dZ = predictions - y_one_hot
+        else:
+            # Default fallback - assume cross-entropy
+            exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
+            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+            dZ = probs - y_one_hot
         
         # Backpropagate through all layers
         for i in reversed(range(len(self.weights))):
