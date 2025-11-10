@@ -1,7 +1,7 @@
 # WandB Sweep Configuration for Deep Learning Experiment
-program: model.py
-project: "deep-learning-project"
-entity: "s224225"
+# program: train_fashion_10.py
+# project: "Deep_learning_project"
+# entity: "s224225"
 
 # Sweep Configuration
 method: bayes  # Options: grid, random, bayes
@@ -12,7 +12,7 @@ metric:
 # Parameter Search Space
 parameters:
   num_epochs:
-    values: [30, 50, 100]
+    value: 75
   
   learning_rate:
     distribution: log_uniform_values
@@ -23,7 +23,7 @@ parameters:
     values: [32, 64, 128, 256]
   
   optimizer:
-    values: ["adam", "sgd", "rmsprop"]
+    values: ["adam", "sgd"]
   
   l2_coeff:
     distribution: log_uniform_values
@@ -35,19 +35,15 @@ parameters:
       [256, 128],
       [512, 256, 128],
       [1024, 512, 256],
-      [512, 256, 128, 64]
+      [512, 256, 128, 64],
+      [1024, 512, 256, 128, 64]
     ]
   
   activation:
     values: ["relu", "tanh"]
   
-  weights_init:
-    values: ["xavier", "he", "normal"]
+  # weights_init:
+  #   values: ["xavier", "he", "normal"]
   
   loss:
     value: "cross_entropy"  # Fixed parameter
-
-# Early termination
-early_terminate:
-  type: hyperband
-  min_iter: 10

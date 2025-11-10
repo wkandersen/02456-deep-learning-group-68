@@ -311,8 +311,8 @@ class FFNN:
             # Store training metrics
             self.train_loss_history.append(avg_loss)
             self.train_acc_history.append(train_accuracy)
-            
-            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
+            if epoch % 5 == 0:
+                print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
             wandb.log({"train_loss": avg_loss, "train_accuracy": train_accuracy})
             
             # Validate if validation data is provided

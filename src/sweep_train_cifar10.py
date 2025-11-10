@@ -1,10 +1,11 @@
 from model_cifar_10 import FFNN
-from load_data import DataLoader
+from load_data import DataLoaderCifar10
 import numpy as np
 from datetime import datetime
 import wandb
 import getpass
 import yaml
+import os
 
 
 user = getpass.getuser()
@@ -13,9 +14,20 @@ wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")
 
 # Load sweep configuration from config.yaml
 def load_sweep_config():
-    with open('config.yaml', 'r') as file:
-        config = yaml.safe_load(file)
-    return config
+    try:
+        with open('src/config.yaml', 'r') as file:
+            config = yaml.safe_load(file)
+        if config is None:
+            raise ValueError("Config file is empty or invalid")
+        return config
+    except FileNotFoundError:
+        print("config.yaml not found in current directory")
+        print(f"Current directory: {os.getcwd()}")
+        print("Available files:", os.listdir('.'))
+        raise
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        raise
 
 sweep_configuration = load_sweep_config()
 
@@ -31,12 +43,13 @@ def sweep_objective():
     optimizer = config.optimizer
     batch_size = config.batch_size
     l2_coeff = config.l2_coeff
-    weight_init = config.weights_init
+    # weight_init is commented out in config, so use default
+    weight_init = "he"  # Default since it's commented out in config
     activation = config.activation
     loss = config.loss
 
     # Load CIFAR-10 data using formatted data
-    data_loader = DataLoader()
+    data_loader = DataLoaderCifar10()
     _, (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
     (X_subset, y_subset) = data_loader.create_subset(split_ratio=0.25)
 
@@ -68,12 +81,13 @@ if __name__ == "__main__":
     wandb.login()
     
     # Add custom name to sweep configuration
-    sweep_configuration["name"] = f"Sweep_{user}_{datetime.now():%Y-%m-%d_%H-%M-%S}"
+    sweep_configuration["name"] = f"CIFAR10_Sweep_{user}_{datetime.now():%Y-%m-%d_%H-%M-%S}"
+    
+    # Get project name from config
+    project_name = sweep_configuration.get("project", "Deep_learning_project")
     
     # Create the sweep
-    sweep_id = wandb.sweep(sweep=sweep_configuration, project=sweep_configuration["project"])
-    print(f"Sweep created with ID: {sweep_id}")
-    print(f"View sweep at: https://wandb.ai/{sweep_configuration['entity']}/{sweep_configuration['project']}/sweeps/{sweep_id}")
+    sweep_id = wandb.sweep(sweep=sweep_configuration, project=project_name)
     
     # Run sweep agents
-    wandb.agent(sweep_id, function=sweep_objective, count=10)  # Run 10 trials
+    wandb.agent(sweep_id, function=sweep_objective, count=20)  # Run 10 trials
