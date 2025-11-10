@@ -1,5 +1,5 @@
 from model import FFNN
-from load_data import CIFAR10Loader
+from load_data_old import CIFAR10Loader
 import numpy as np
 from datetime import datetime
 import wandb
