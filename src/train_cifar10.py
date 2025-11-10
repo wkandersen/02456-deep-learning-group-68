@@ -1,5 +1,5 @@
 from model import FFNN
-from load_data_old import CIFAR10Loader
+from load_data import DataLoader
 import numpy as np
 from datetime import datetime
 import wandb
@@ -33,8 +33,8 @@ run = wandb.init(
 )
 
 # Load CIFAR-10 data
-data_loader = CIFAR10Loader()
-train_images, train_labels = data_loader.get_training_data()
+data_loader = DataLoader()
+train_images, train_labels = data_loader.get_train_data()
 test_images, test_labels = data_loader.get_test_data()
 val_images, val_labels = data_loader.get_validation_data()
 

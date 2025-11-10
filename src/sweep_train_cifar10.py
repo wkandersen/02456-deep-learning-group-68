@@ -1,5 +1,5 @@
 from model import FFNN
-from load_data import CIFAR10Loader
+from load_data import DataLoader
 import numpy as np
 from datetime import datetime
 import wandb
@@ -31,8 +31,8 @@ def sweep_objective():
     loss = 'mse'
 
     # Load CIFAR-10 data
-    data_loader = CIFAR10Loader()
-    train_images, train_labels = data_loader.get_training_data()
+    data_loader = DataLoader()
+    train_images, train_labels = data_loader.get_train_data()
     test_images, test_labels = data_loader.get_test_data()
     val_images, val_labels = data_loader.get_validation_data()
 
@@ -62,4 +62,4 @@ def sweep_objective():
 if __name__ == "__main__":
     wandb.login()
     sweep_id = wandb.sweep(sweep=sweep_configuration, project="Deep_learning_project")
-    wandb.agent(sweep_id, function=sweep_objective, count=16)  # Run 15 trials
+    wandb.agent(sweep_id, function=sweep_objective, count=5)  # Run 15 trials
