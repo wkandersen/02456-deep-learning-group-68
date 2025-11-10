@@ -77,6 +77,7 @@ class FFNN:
         self.activations = []
         self.z_values = []
         a = X
+        a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
         self.activations.append(a)
         
         # Forward pass through hidden layers

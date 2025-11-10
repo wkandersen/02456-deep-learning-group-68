@@ -12,17 +12,18 @@ class DataLoader:
     def get_validation_data(self):
         # Using part of the training set as validation set
         self.val_size = int(len(self.trainset) * self.validation_split)
-        val_data = self.trainset.data[:self.val_size]
-        val_targets = self.trainset.targets[:self.val_size]
+        val_data = np.array(self.trainset.data[:self.val_size])
+        val_targets = np.array(self.trainset.targets[:self.val_size])
         return val_data, val_targets
 
     def get_train_data(self):
-        train_data = self.trainset.data[self.val_size:]
-        train_targets = self.trainset.targets[self.val_size:]
+        train_data = np.array(self.trainset.data[self.val_size:])
+        train_targets = np.array(self.trainset.targets[self.val_size:])
         return train_data, train_targets
     
     def get_test_data(self):
-        return self.testset.data, self.testset.targets
+        return np.array(self.testset.data), np.array(self.testset.targets)
+    
     
     def get_class_names(self):
         """Get the list of class names"""
