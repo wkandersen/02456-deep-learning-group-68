@@ -7,7 +7,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
 class FFNN:
-    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0):
+    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=5):
         self.num_epochs = num_epochs
         self.hidden_layers = hidden_layers  # Now a list like [512, 128, 64]
         self.num_hidden_layers = len(hidden_layers)  # Number of layers derived from list length
@@ -24,6 +24,7 @@ class FFNN:
         self.biases = []
         self.batch_norm = batch_norm  # Initialize batch norm flag
         self.dropout_prob = dropout_prob  # Initialize dropout probability
+        self.patience=patience
         self._initialize_weights()
         self.loss_function = loss_function(_loss)
         self.activations = []
@@ -271,6 +272,8 @@ class FFNN:
         
     def train(self, X_train, y_train, X_val=None, y_val=None):
         num_samples = X_train.shape[0]
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
         for epoch in range(self.num_epochs):
             # Shuffle the data at the beginning of each epoch
             perm = np.random.permutation(num_samples)
@@ -318,6 +321,19 @@ class FFNN:
                 # Store validation metrics
                 self.val_loss_history.append(val_loss)
                 self.val_acc_history.append(val_accuracy)
+
+                if val_loss < best_val_loss - 1e-6:  # improvement threshold
+                                best_val_loss = val_loss
+                                best_epoch = epoch + 1
+                                epochs_no_improve = 0
+                else:
+                    epochs_no_improve += 1
+
+                # Check patience
+                if epochs_no_improve >= self.patience:
+                    print(f"Early stopping triggered at epoch {epoch+1}. Best validation loss: {best_val_loss:.4f} (epoch {best_epoch})")
+                    break
+                
             else:
                 # If no validation data, store None to maintain list alignment
                 self.val_loss_history.append(None)
@@ -367,7 +383,6 @@ class FFNN:
                 class_names=[str(i) for i in range(self.output_size)]
             )
         })
-        print("✅ Final confusion matrix logged to Weights & Biases.")
 
     
     def plot_training_history(self, save_path=None, show_plot=True):

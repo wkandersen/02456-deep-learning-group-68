@@ -9,11 +9,11 @@ user = getpass.getuser()
 
 wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")
 
-num_epochs = 5
-hidden_layers = [1024, 512, 256]
+num_epochs = 40
+hidden_layers = [512, 256]
 lr = 0.001
 optimizer = 'adam'
-batch_size = 512
+batch_size = 256
 l2_coeff = 0.0001
 weight_init = 'he'
 activation = 'relu'
@@ -63,10 +63,11 @@ model = FFNN(
 
 # Train the model
 model.train(X_train, y_train, X_val, y_val)
-model.plot_training_history()
 
 # Evaluate the model
 test_accuracy = model.evaluate(X_test, y_test)
+model.plot_training_history()
+
 model.confusion_matrix_plot(X_test, y_test)
 model.log_final_confusion_matrix(X_val, y_val)
 
