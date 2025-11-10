@@ -1,5 +1,6 @@
 from loss_function import loss_function
 import numpy as np
+import matplotlib.pyplot as plt
 
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
@@ -25,6 +26,12 @@ class FFNN:
         self.loss_function = loss_function(_loss)
         self.activations = []
         self.z_values = []
+        
+        # Initialize history tracking for plotting
+        self.train_loss_history = []
+        self.val_loss_history = []
+        self.train_acc_history = []
+        self.val_acc_history = []
 
     def _initialize_weights(self):
         # Create layer sizes: [input_size, hidden_layer_1, hidden_layer_2, ..., output_size]
@@ -210,13 +217,16 @@ class FFNN:
                 self.weights[i] -= self.lr * dW[i]
                 self.biases[i] -= self.lr * db[i]
         
-    def train(self, X_train, y_train):
+    def train(self, X_train, y_train, X_val=None, y_val=None):
         num_samples = X_train.shape[0]
         for epoch in range(self.num_epochs):
             # Shuffle the data at the beginning of each epoch
             perm = np.random.permutation(num_samples)
             X_train_shuffled = X_train[perm]
             y_train_shuffled = y_train[perm]
+            
+            epoch_loss = 0
+            num_batches = 0
             
             for i in range(0, num_samples, self.batch_size):
                 X_batch = X_train_shuffled[i:i+self.batch_size]
@@ -227,6 +237,8 @@ class FFNN:
                 
                 # Compute loss
                 loss = self.compute_loss(predictions, y_batch)
+                epoch_loss += loss
+                num_batches += 1
                 
                 # Backward pass
                 dW, db = self.backward(X_batch, y_batch)
@@ -234,15 +246,26 @@ class FFNN:
                 # Update weights
                 self.update_weights(dW, db)
             
-            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {loss} Accuracy: {self.evaluate(X_train, y_train)}")
-            # Forward pass
-            predictions = self.forward(X_batch)
-            # Compute loss
-            loss = self.compute_loss(predictions, y_batch)
-            # Backward pass
-            dW, db = self.backward(X_batch, y_batch)
-            # Update weights
-            self.update_weights(dW, db)
+            # Calculate average loss for the epoch
+            avg_loss = epoch_loss / num_batches
+            train_accuracy = self.evaluate(X_train, y_train)
+            
+            # Store training metrics
+            self.train_loss_history.append(avg_loss)
+            self.train_acc_history.append(train_accuracy)
+            
+            print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
+            
+            # Validate if validation data is provided
+            if X_val is not None and y_val is not None:
+                val_accuracy, val_loss = self.validate(X_val, y_val)
+                # Store validation metrics
+                self.val_loss_history.append(val_loss)
+                self.val_acc_history.append(val_accuracy)
+            else:
+                # If no validation data, store None to maintain list alignment
+                self.val_loss_history.append(None)
+                self.val_acc_history.append(None)
 
     def validate(self, X_val, y_val):
         preds = self.predict(X_val)
@@ -262,5 +285,97 @@ class FFNN:
         preds = self.predict(X)
         accuracy = np.mean(preds == y)
         return accuracy
+    
+    def plot_training_history(self, save_path=None, show_plot=True):
+        """
+        Plot training and validation loss and accuracy curves
+        
+        Args:
+            save_path (str): Path to save the plot (optional)
+            show_plot (bool): Whether to display the plot
+        """
+        epochs = range(1, len(self.train_loss_history) + 1)
+        
+        # Create subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+        
+        # Plot Loss
+        ax1.plot(epochs, self.train_loss_history, 'b-', label='Training Loss', linewidth=2)
+        
+        # Only plot validation if we have validation data
+        if any(loss is not None for loss in self.val_loss_history):
+            val_epochs = [i+1 for i, loss in enumerate(self.val_loss_history) if loss is not None]
+            val_losses = [loss for loss in self.val_loss_history if loss is not None]
+            ax1.plot(val_epochs, val_losses, 'r-', label='Validation Loss', linewidth=2)
+        
+        ax1.set_title('Model Loss', fontsize=14, fontweight='bold')
+        ax1.set_xlabel('Epoch', fontsize=12)
+        ax1.set_ylabel('Loss', fontsize=12)
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        
+        # Plot Accuracy
+        ax2.plot(epochs, self.train_acc_history, 'b-', label='Training Accuracy', linewidth=2)
+        
+        # Only plot validation if we have validation data
+        if any(acc is not None for acc in self.val_acc_history):
+            val_epochs = [i+1 for i, acc in enumerate(self.val_acc_history) if acc is not None]
+            val_accs = [acc for acc in self.val_acc_history if acc is not None]
+            ax2.plot(val_epochs, val_accs, 'r-', label='Validation Accuracy', linewidth=2)
+        
+        ax2.set_title('Model Accuracy', fontsize=14, fontweight='bold')
+        ax2.set_xlabel('Epoch', fontsize=12)
+        ax2.set_ylabel('Accuracy', fontsize=12)
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        
+        # Adjust layout
+        plt.tight_layout()
+        
+        # Save plot if path is provided
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Plot saved to: {save_path}")
+        
+        # Show plot
+        if show_plot:
+            plt.show()
+        
+        return fig
+    
+    def plot_loss_curve(self, loss_history):
+        """Backward compatibility - simple loss plotting"""
+        plt.plot(loss_history)
+        plt.title("Loss Curve")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.show()
+    
+    def get_training_summary(self):
+        """Get a summary of training metrics"""
+        if not self.train_loss_history:
+            return "No training history available. Train the model first."
+        
+        summary = {
+            'epochs_trained': len(self.train_loss_history),
+            'final_train_loss': self.train_loss_history[-1],
+            'final_train_accuracy': self.train_acc_history[-1],
+            'best_train_accuracy': max(self.train_acc_history),
+            'best_train_accuracy_epoch': self.train_acc_history.index(max(self.train_acc_history)) + 1
+        }
+        
+        # Add validation metrics if available
+        val_losses = [loss for loss in self.val_loss_history if loss is not None]
+        val_accs = [acc for acc in self.val_acc_history if acc is not None]
+        
+        if val_losses:
+            summary.update({
+                'final_val_loss': val_losses[-1],
+                'final_val_accuracy': val_accs[-1],
+                'best_val_accuracy': max(val_accs),
+                'best_val_accuracy_epoch': [i+1 for i, acc in enumerate(self.val_acc_history) if acc == max(val_accs)][0]
+            })
+        
+        return summary
     
     

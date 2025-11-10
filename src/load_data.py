@@ -27,7 +27,7 @@ class CIFAR10Loader:
         all_labels = []
 
         # Load and combine all 5 batches
-        for i in range(1, 6):
+        for i in range(2, 6):
             batch = self._unpickle(f'data/cifar-10-batches-py/data_batch_{i}')
             data = batch[b'data']
             labels = batch[b'labels']
@@ -50,6 +50,13 @@ class CIFAR10Loader:
         self.test_labels = np.array(test[b'labels'])
 
 
+    def get_validation_data(self, batch_number="data_batch_1"):
+
+        # Load the specified batch
+        batch = self._unpickle(f'data/cifar-10-batches-py/{batch_number}')
+        self.val_images = batch[b'data']
+        self.val_labels = np.array(batch[b'labels'])
+        return self.val_images, self.val_labels
 
     def get_data(self):
         return self.train_images, self.train_labels, self.decoded_labels
@@ -99,8 +106,13 @@ class CIFAR10Loader:
 dataloader = CIFAR10Loader()
 train_images, train_labels = dataloader.get_training_data()
 test_images, test_labels = dataloader.get_test_data()
+validation_images, validation_labels = dataloader.get_validation_data()
+
+
 
 print(f"Training data shape: {train_images.shape}")
 print(f"Training labels shape: {train_labels.shape}")
+print(f"Validation data shape: {validation_images.shape}")
+print(f"Validation labels shape: {validation_labels.shape}")
 print(f"Test data shape: {test_images.shape}")
 print(f"Test labels shape: {test_labels.shape}")
