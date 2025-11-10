@@ -1,0 +1,15 @@
+#!/bin/bash
+#BSUB -j dl_sweep
+#BSUB -o hpc_outputs/dl_sweep.out
+#BSUB -e hpc_outputs/dl_sweep.err
+#BSUB -R "rusage[mem=4G]"
+#BSUB -W 12:00
+#BSUB -B
+#BSUB -n 4
+
+
+source ~/miniconda3/bin/activate
+conda activate computer_vison
+
+
+python train.py

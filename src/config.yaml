@@ -30,9 +30,6 @@ parameters:
     min: 0.00001
     max: 0.01
   
-  num_hidden_layers:
-    values: [2, 3, 4]
-  
   n_hidden_units:
     values: [
       [256, 128],
@@ -42,7 +39,7 @@ parameters:
     ]
   
   activation:
-    values: ["relu", "tanh", "leaky_relu"]
+    values: ["relu", "tanh"]
   
   weights_init:
     values: ["xavier", "he", "normal"]
