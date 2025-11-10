@@ -6,15 +6,15 @@ import wandb
 
 wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")
 
-num_epochs = 5
-hidden_layers = [512, 256, 128]
+num_epochs = 10
+hidden_layers = [1024, 512, 256]
 lr = 0.001
 optimizer = 'adam'
 batch_size = 512
 l2_coeff = 0.0001
 weight_init = 'he'
 activation = 'relu'
-loss = 'mse'
+loss = 'cross_entropy'
 
 run = wandb.init(
     project="Deep_learning_project",
@@ -57,9 +57,9 @@ model = FFNN(
 
 # Train the model
 model.train(train_images, train_labels, val_images, val_labels)
-# model.plot_training_history()
+model.plot_training_history()
 
 # Evaluate the model
 test_accuracy = model.evaluate(test_images, test_labels)
 print(f"Test accuracy: {test_accuracy}")
-wandb.log({"test_accuracy": test_accuracy})
+# wandb.log({"test_accuracy": test_accuracy})

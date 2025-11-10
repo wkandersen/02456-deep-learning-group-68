@@ -74,11 +74,12 @@ class FFNN:
         elif self.activation == 'tanh':
             return 1 - np.tanh(x) ** 2
 
-    def forward(self, X):
+    def forward(self, X, training=True):
         self.activations = []
         self.z_values = []
         a = X
         a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
+        assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
         
         # Forward pass through hidden layers
@@ -88,7 +89,8 @@ class FFNN:
                 gamma = np.ones((1, self.hidden_layers[i]))  # Use actual layer size
                 beta = np.zeros((1, self.hidden_layers[i]))   # Use actual layer size
                 z = self._batch_normalize(z, gamma, beta)
-            if self.dropout_prob > 0:
+            # Only apply dropout during training
+            if self.dropout_prob > 0 and training:
                 z = self._dropout(z, self.dropout_prob)
             a = self._activation(z)
             self.z_values.append(z)
@@ -282,7 +284,7 @@ class FFNN:
                 y_batch = y_train_shuffled[i:i+self.batch_size]
                 
                 # Forward pass
-                predictions = self.forward(X_batch)
+                predictions = self.forward(X_batch, training=True)
                 
                 # Compute loss
                 loss = self.compute_loss(predictions, y_batch)
@@ -297,7 +299,10 @@ class FFNN:
             
             # Calculate average loss for the epoch
             avg_loss = epoch_loss / num_batches
-            train_accuracy = self.evaluate(X_train, y_train)
+            
+            # Compute training accuracy on a subset for efficiency (or use last batch accuracy)
+            # This is much faster than computing on full dataset every epoch
+            train_accuracy = self.evaluate_batch(X_batch, y_batch)
             
             # Store training metrics
             self.train_loss_history.append(avg_loss)
@@ -320,19 +325,25 @@ class FFNN:
     def validate(self, X_val, y_val):
         preds = self.predict(X_val)
         accuracy = np.mean(preds == y_val)
-        loss = self.compute_loss(self.forward(X_val), y_val)
-        print(f"Validation Loss: {loss}, Accuracy: {accuracy}")
+        loss = self.compute_loss(self.forward(X_val, training=False), y_val)
+        print(f"Validation Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
         wandb.log({"val_loss": loss, "val_accuracy": accuracy})
         return accuracy, loss
 
     def predict(self, X):
-        # with softmax
-        logits = self.forward(X)
+        # with softmax - NO DROPOUT during inference
+        logits = self.forward(X, training=False)
         exp_scores = np.exp(logits - np.max(logits, axis=1, keepdims=True))
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
         return np.argmax(probs, axis=1)
 
     def evaluate(self, X, y):
+        preds = self.predict(X)
+        accuracy = np.mean(preds == y)
+        return accuracy
+    
+    def evaluate_batch(self, X, y):
+        """Evaluate accuracy on a single batch - faster than full dataset"""
         preds = self.predict(X)
         accuracy = np.mean(preds == y)
         return accuracy
