@@ -65,6 +65,14 @@ class DataLoader:
             print(f"  {i}: {class_name}")
         return class_names
 
+    def create_subset(self, split_ratio=0.25):
+        """Create a subset of the training data for quick experiments"""
+        (train_data, train_targets), _, _ = self.get_formatted_data()
+        subset_size = int(len(train_data) * split_ratio)
+        subset_data = train_data[:subset_size]
+        subset_targets = train_targets[:subset_size]
+
+        return subset_data, subset_targets
 
 
 if __name__ == "__main__":
@@ -73,6 +81,8 @@ if __name__ == "__main__":
     # Get formatted data
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
 
+    x_subset, y_subset = data_loader.create_subset(split_ratio=0.25)
+    print(f"Subset data shape: {x_subset.shape}, Subset labels shape: {y_subset.shape}")
     # Get class names
     class_names = data_loader.get_class_names()
     print(f"Class names: {class_names}")

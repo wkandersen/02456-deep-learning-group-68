@@ -42,6 +42,7 @@ data_loader = DataLoader()
 
 # Get formatted data ready for neural networks
 (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
+X_train, y_train = data_loader.create_subset(split_ratio=0.25)
 # Initialize the model
 model = FFNN(
     num_epochs=num_epochs,
@@ -62,9 +63,9 @@ model.train(X_train, y_train, X_val, y_val)
 model.plot_training_history()
 
 # Evaluate the model
-test_accuracy = model.evaluate(test_images, test_labels)
-model.confusion_matrix_plot(test_images, test_labels)
-model.log_final_confusion_matrix(val_images, val_labels)
+test_accuracy = model.evaluate(X_test, y_test)
+# model.confusion_matrix_plot(test_images, test_labels)
+# model.log_final_confusion_matrix(val_images, val_labels)
 
 print(f"Test accuracy: {test_accuracy}")
 # wandb.log({"test_accuracy": test_accuracy})
