@@ -355,7 +355,8 @@ class FFNN:
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         disp.plot(cmap=plt.cm.Blues)
         plt.title("Confusion Matrix")
-        plt.show()
+        plt.savefig("confusion_matrix.png", dpi=300)
+        # plt.show()
 
     def log_final_confusion_matrix(self, X, y):
         preds = self.predict(X)

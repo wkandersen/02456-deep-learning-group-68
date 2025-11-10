@@ -3,11 +3,14 @@ from load_data import DataLoader
 import numpy as np
 from datetime import datetime
 import wandb
+import getpass
+
+user = getpass.getuser()
 
 wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")
 
-num_epochs = 10
-hidden_layers = [2048, 1024, 512, 256]
+num_epochs = 5
+hidden_layers = [1024, 512, 256]
 lr = 0.001
 optimizer = 'adam'
 batch_size = 512
@@ -18,7 +21,7 @@ loss = 'cross_entropy'
 
 run = wandb.init(
     project="Deep_learning_project",
-    name=f"Trial_{datetime.now():%Y-%m-%d_%H-%M-%S}",
+    name=f"Trial_{user}_{datetime.now():%Y-%m-%d_%H-%M-%S}",
     config={
         "num_epochs": num_epochs,
         "hidden_layers": hidden_layers,
@@ -62,9 +65,9 @@ model.train(X_train, y_train, X_val, y_val)
 model.plot_training_history()
 
 # Evaluate the model
-test_accuracy = model.evaluate(test_images, test_labels)
-model.confusion_matrix_plot(test_images, test_labels)
-model.log_final_confusion_matrix(val_images, val_labels)
+test_accuracy = model.evaluate(X_train, y_train)
+model.confusion_matrix_plot(X_test, y_test)
+model.log_final_confusion_matrix(X_val, y_val)
 
 print(f"Test accuracy: {test_accuracy}")
-# wandb.log({"test_accuracy": test_accuracy})
+wandb.log({"test_accuracy": test_accuracy})
