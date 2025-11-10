@@ -2,6 +2,7 @@ from loss_function import loss_function
 import numpy as np
 import matplotlib.pyplot as plt
 import wandb
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
@@ -336,6 +337,26 @@ class FFNN:
         preds = self.predict(X)
         accuracy = np.mean(preds == y)
         return accuracy
+    
+    def confusion_matrix_plot(self, X, y):
+        preds = self.predict(X)
+        cm = confusion_matrix(y, preds)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot(cmap=plt.cm.Blues)
+        plt.title("Confusion Matrix")
+        plt.show()
+
+    def log_final_confusion_matrix(self, X, y):
+        preds = self.predict(X)
+        wandb.log({
+            "final_confusion_matrix": wandb.plot.confusion_matrix(
+                y_true=y,
+                preds=preds,
+                class_names=[str(i) for i in range(self.output_size)]
+            )
+        })
+        print("✅ Final confusion matrix logged to Weights & Biases.")
+
     
     def plot_training_history(self, save_path=None, show_plot=True):
         """

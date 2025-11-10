@@ -3,13 +3,16 @@ from load_data import DataLoader
 import numpy as np
 from datetime import datetime
 import wandb
+import getpass
+
+user = getpass.getuser()
 
 wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")
 
 
 sweep_configuration = {
     "method": "random",  # Can also use "bayes"
-    "name": f"Sweep_{datetime.now():%Y-%m-%d_%H-%M-%S}",
+    "name": f"Sweep_{user}_{datetime.now():%Y-%m-%d_%H-%M-%S}",
     "metric": {"goal": "minimize", "name": "val_loss"},
     "parameters": {
         "batch_size": {"values": [256,512]},
@@ -28,9 +31,11 @@ def sweep_objective():
     optimizer = 'adam'
     weight_init = 'he'
     activation = 'relu'
-    loss = 'mse'
+    loss = 'cross_entropy'
 
     # Load CIFAR-10 data
+    data_loader = DataLoader()
+    train_images, train_labels = data_loader.get_train_data()
     data_loader = DataLoader()
     train_images, train_labels = data_loader.get_train_data()
     test_images, test_labels = data_loader.get_test_data()
@@ -54,8 +59,12 @@ def sweep_objective():
     # Train the model
     model.train(train_images, train_labels, val_images, val_labels)
     # model.plot_training_history()
+
+    # Evaluate the model
     test_accuracy = model.evaluate(test_images, test_labels)
+    print(f"Test accuracy: {test_accuracy}")
     wandb.log({"test_accuracy": test_accuracy})
+
     run.finish()
 
 # Launch sweep
