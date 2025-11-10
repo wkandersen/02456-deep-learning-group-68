@@ -1,4 +1,4 @@
-from model import FFNN
+from model_cifar_10 import FFNN
 from load_data import DataLoader
 import numpy as np
 from datetime import datetime

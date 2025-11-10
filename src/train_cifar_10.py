@@ -1,5 +1,5 @@
-from model import FFNN
-from load_data import DataLoader
+from model_cifar_10 import FFNN
+from load_data import DataLoaderCifar10
 import numpy as np
 from datetime import datetime
 import wandb
@@ -9,11 +9,18 @@ user = getpass.getuser()
 
 wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")
 
-num_epochs = 40
-hidden_layers = [512, 256]
+
+data_loader = DataLoaderCifar10()
+# Get formatted data ready for neural networks
+(X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
+X_train, y_train = data_loader.create_subset(split_ratio=0.25)
+
+input_size = 3072
+num_epochs = 5
+hidden_layers = [1024, 512, 256]
 lr = 0.001
 optimizer = 'adam'
-batch_size = 256
+batch_size = 512
 l2_coeff = 0.0001
 weight_init = 'he'
 activation = 'relu'
@@ -36,16 +43,7 @@ run = wandb.init(
 )
 
 # Load CIFAR-10 data
-data_loader = DataLoader()
-# train_images, train_labels = data_loader.get_train_data()
-# train_images, train_labels = data_loader.get_train_data()
-# test_images, test_labels = data_loader.get_test_data()
-# val_images, val_labels = data_loader.get_validation_data()
 
-
-# Get formatted data ready for neural networks
-(X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
-X_train, y_train = data_loader.create_subset(split_ratio=0.25)
 # Initialize the model
 model = FFNN(
     num_epochs=num_epochs,
@@ -63,11 +61,10 @@ model = FFNN(
 
 # Train the model
 model.train(X_train, y_train, X_val, y_val)
+model.plot_training_history()
 
 # Evaluate the model
 test_accuracy = model.evaluate(X_test, y_test)
-model.plot_training_history()
-
 model.confusion_matrix_plot(X_test, y_test)
 model.log_final_confusion_matrix(X_val, y_val)
 

@@ -1,7 +1,8 @@
 from torchvision import datasets
 import numpy as np
+from keras.datasets import fashion_mnist
 
-class DataLoader:
+class DataLoaderCifar10:
     def __init__(self, root='./data', validation_split=0.1):
         self.trainset = datasets.CIFAR10(root=root, train=True, download=True)
         self.testset = datasets.CIFAR10(root=root, train=False, download=True)
@@ -75,16 +76,93 @@ class DataLoader:
         return subset_data, subset_targets
 
 
-if __name__ == "__main__":
-    data_loader = DataLoader()
-    
-    # Get formatted data
-    (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
 
-    x_subset, y_subset = data_loader.create_subset(split_ratio=0.25)
-    print(f"Subset data shape: {x_subset.shape}, Subset labels shape: {y_subset.shape}")
+class DataLoaderFashionMNIST:
+    def __init__(self, validation_split=0.1):
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = fashion_mnist.load_data()
+        self.validation_split = validation_split
+        self.val_size = int(len(self.X_train) * self.validation_split)
+
+    def _get_validation_data(self):
+        val_data = self.X_train[:self.val_size]
+        val_targets = self.y_train[:self.val_size]
+        return val_data, val_targets
+
+    def _get_train_data(self):
+        train_data = self.X_train[self.val_size:]
+        train_targets = self.y_train[self.val_size:]
+        return train_data, train_targets
+    
+    def _get_test_data(self):
+        return self.X_test, self.y_test
+    
+    def get_data(self):
+        x_train, y_train = self._get_train_data()
+        x_val, y_val = self._get_validation_data()
+        x_test, y_test = self._get_test_data()
+        return (x_train, y_train), (x_val, y_val), (x_test, y_test)
+        
+    def get_class_names(self):
+        """Get the list of class names"""
+        return [
+            "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
+            "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"
+        ]
+    
+    def print_class_info(self):
+        """Print information about classes"""
+        class_names = self.get_class_names()
+        print(f"Number of classes: {len(class_names)}")
+        print("Class names:")
+        for i, class_name in enumerate(class_names):
+            print(f"  {i}: {class_name}")
+        return class_names
+    
+    def get_num_classes(self,):
+        """Get the number of classes"""
+        return 10
+    
+    def create_subset(self, split_ratio=0.25):
+        """Create a subset of the training data for quick experiments"""
+        train_data, train_targets = self._get_train_data()
+        subset_size = int(len(train_data) * split_ratio)
+        subset_data = train_data[:subset_size]
+        subset_targets = train_targets[:subset_size]
+
+        return subset_data, subset_targets
+
+
+
+
+
+if __name__ == "__main__":
+
+
+    dataset_choice = input("Write cifar or fashion to choose dataset loader: \n")
+    if dataset_choice.lower() == "cifar":
+        dataload_cifar = DataLoaderCifar10()
+        (X_train, y_train), (X_val, y_val), (X_test, y_test) = dataload_cifar.get_formatted_data()
+
+    elif dataset_choice.lower() == "fashion":
+        dataload_fashion = DataLoaderFashionMNIST()
+        (X_train, y_train), (X_val, y_val), (X_test, y_test) = dataload_fashion.get_data()
+    else:
+        print("Invalid choice, defaulting to CIFAR-10 loader.")
+        dataload_cifar = DataLoaderCifar10()
+    
+    subset_or_not = input("Subset?: Yes or no \n")
+    # Get formatted data
+    if subset_or_not == "yes":
+        x_subset, y_subset = dataload_cifar.create_subset(split_ratio=0.25)
+        print(f"Subset data shape: {x_subset.shape}, Subset labels shape: {y_subset.shape}")
+
+
+    if dataset_choice.lower() == "cifar":
     # Get class names
-    class_names = data_loader.get_class_names()
+        class_names = dataload_cifar.get_class_names()
+
+    if dataset_choice.lower() == "fashion":
+        class_names = dataload_fashion.get_class_names()
     print(f"Class names: {class_names}")
     
     print(f"Unique classes in dataset: {len(np.unique(y_train))}")
@@ -93,7 +171,11 @@ if __name__ == "__main__":
     print(f"Validation samples: {len(X_val)}")
 
     # Print class information
-    data_loader.print_class_info()
+    if dataset_choice.lower() == "cifar":
+        dataload_cifar.print_class_info()
+
+    if dataset_choice.lower() == "fashion":
+        dataload_fashion.print_class_info()
 
     print(f"Training per class distribution:")
     class_counts = {cls: 0 for cls in np.unique(y_train)}
@@ -111,12 +193,20 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     # Reshape flattened image back to 32x32x3 for display
-    first_image = X_train[0].reshape(32, 32, 3)
-    # Denormalize for proper display (since we normalized to [0,1])
-    first_image_display = (first_image * 255).astype(np.uint8)
-    
-    plt.imshow(first_image_display)
-    first_label = y_train[0]
-    class_name = class_names[first_label]
-    plt.title(f"Class {first_label}: {class_name}")
-    plt.show()
+    if dataset_choice.lower() == "cifar":
+        first_image = X_train[0].reshape(32, 32, 3)
+        # Denormalize for proper display (since we normalized to [0,1])
+        first_image_display = (first_image * 255).astype(np.uint8)
+        
+        plt.imshow(first_image_display)
+        first_label = y_train[0]
+        class_name = class_names[first_label]
+        plt.title(f"Class {first_label}: {class_name}")
+        plt.show()
+
+    if dataset_choice.lower() == "fashion":
+        plt.imshow(X_train[0], cmap='gray')
+        first_label = y_train[0]
+        class_name = class_names[first_label]
+        plt.title(f"Class {first_label}: {class_name}")
+        plt.show()
