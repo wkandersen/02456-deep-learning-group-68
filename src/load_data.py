@@ -9,19 +9,19 @@ class DataLoader:
         self.val_size = int(len(self.trainset) * self.validation_split)
 
 
-    def get_validation_data(self):
+    def _get_validation_data(self):
         # Using part of the training set as validation set
         self.val_size = int(len(self.trainset) * self.validation_split)
         val_data = np.array(self.trainset.data[:self.val_size])
         val_targets = np.array(self.trainset.targets[:self.val_size])
         return val_data, val_targets
 
-    def get_train_data(self):
+    def _get_train_data(self):
         train_data = np.array(self.trainset.data[self.val_size:])
         train_targets = np.array(self.trainset.targets[self.val_size:])
         return train_data, train_targets
     
-    def get_test_data(self):
+    def _get_test_data(self):
         return np.array(self.testset.data), np.array(self.testset.targets)
 
     def get_formatted_data(self):
@@ -32,10 +32,10 @@ class DataLoader:
         - Labels as numpy arrays
         """
         # Get raw data
-        train_data, train_targets = self.get_train_data()
-        val_data, val_targets = self.get_validation_data()
-        test_data, test_targets = self.get_test_data()
-        
+        train_data, train_targets = self._get_train_data()
+        val_data, val_targets = self._get_validation_data()
+        test_data, test_targets = self._get_test_data()
+
         # Flatten images: (N, 32, 32, 3) -> (N, 3072)
         train_data_flat = train_data.reshape(train_data.shape[0], -1)
         val_data_flat = val_data.reshape(val_data.shape[0], -1)

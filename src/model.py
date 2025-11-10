@@ -343,6 +343,12 @@ class FFNN:
         accuracy = np.mean(preds == y)
         return accuracy
     
+    def evaluate_batch(self, X, y):
+        """Evaluate accuracy on a single batch - faster than full dataset"""
+        preds = self.predict(X)
+        accuracy = np.mean(preds == y)
+        return accuracy
+    
     def confusion_matrix_plot(self, X, y):
         preds = self.predict(X)
         cm = confusion_matrix(y, preds)
