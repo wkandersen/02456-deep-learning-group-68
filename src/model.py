@@ -1,6 +1,7 @@
 from loss_function import loss_function
 import numpy as np
 import matplotlib.pyplot as plt
+import wandb
 
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
@@ -255,6 +256,7 @@ class FFNN:
             self.train_acc_history.append(train_accuracy)
             
             print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
+            wandb.log({"train_loss": avg_loss, "train_accuracy": train_accuracy})
             
             # Validate if validation data is provided
             if X_val is not None and y_val is not None:
@@ -272,6 +274,7 @@ class FFNN:
         accuracy = np.mean(preds == y_val)
         loss = self.compute_loss(self.forward(X_val), y_val)
         print(f"Validation Loss: {loss}, Accuracy: {accuracy}")
+        wandb.log({"val_loss": loss, "val_accuracy": accuracy})
         return accuracy, loss
 
     def predict(self, X):
