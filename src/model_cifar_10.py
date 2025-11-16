@@ -41,9 +41,17 @@ class FFNN:
         layer_sizes = [self.input_size] + self.hidden_layers + [self.output_size]
         
         for i in range(len(layer_sizes) - 1):
-            # He initialization
-            stddev = np.sqrt(2 / layer_sizes[i])
-            W = np.random.normal(0, stddev, (layer_sizes[i], layer_sizes[i + 1]))
+            if self.weight_init == 'xavier':
+                # Xavier initialization
+                limit = np.sqrt(6 / (layer_sizes[i] + layer_sizes[i + 1]))
+                W = np.random.uniform(-limit, limit, (layer_sizes[i], layer_sizes[i + 1]))
+            elif self.weight_init == 'random':
+                # Random initialization
+                W = np.random.randn(layer_sizes[i], layer_sizes[i + 1]) * 0.01
+            else:
+                # He initialization
+                stddev = np.sqrt(2 / layer_sizes[i])
+                W = np.random.normal(0, stddev, (layer_sizes[i], layer_sizes[i + 1]))
             b = np.zeros((1, layer_sizes[i + 1]))
             self.weights.append(W)
             self.biases.append(b)

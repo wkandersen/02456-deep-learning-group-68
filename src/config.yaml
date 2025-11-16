@@ -16,7 +16,12 @@ parameters:
   
   learning_rate:
     distribution: log_uniform_values
-    min: 0.0001
+    min: 0.00001
+    max: 0.01
+  
+  l2_coeff:
+    distribution: log_uniform_values
+    min: 0.00001
     max: 0.01
   
   batch_size:
@@ -24,11 +29,6 @@ parameters:
   
   optimizer:
     values: ["adam", "sgd"]
-  
-  l2_coeff:
-    distribution: log_uniform_values
-    min: 0.00001
-    max: 0.01
   
   n_hidden_units:
     values: [
@@ -40,10 +40,10 @@ parameters:
     ]
   
   activation:
-    values: ["relu", "tanh"]
+    values: ["relu", "tanh", "sigmoid"]
   
-  # weights_init:
-  #   values: ["xavier", "he", "normal"]
+  weight_init:
+    values: ["xavier", "he", "random"]
   
   loss:
     value: "cross_entropy"  # Fixed parameter
