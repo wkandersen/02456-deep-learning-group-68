@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import wandb
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import seaborn as sns
 
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
@@ -373,13 +374,34 @@ class FFNN:
         accuracy = np.mean(preds == y)
         return accuracy
     
-    def confusion_matrix_plot(self, X, y):
+    def confusion_matrix_plot_sklearn(self, X, y):
         preds = self.predict(X)
         cm = confusion_matrix(y, preds)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         disp.plot(cmap=plt.cm.Blues)
         plt.title("Confusion Matrix")
         plt.savefig("confusion_matrix.png", dpi=300)
+        # plt.show()
+
+    def confusion_matrix_scratch_plot(self, X, y):
+        preds = self.predict(X)
+        true, pred = y, preds
+        labels = sorted(set(true))  # include all labels
+        label_to_index = {label: idx for idx, label in enumerate(labels)}
+        num_classes = len(labels)
+        mat = np.zeros((num_classes, num_classes))
+
+        for t, p in zip(true, pred):
+            i = label_to_index[t]
+            j = label_to_index[p]
+            mat[i, j] += 1
+
+        plt.figure(figsize=(8,6))
+        sns.heatmap(mat, annot=True, fmt=".0f", cmap="Blues", xticklabels=labels, yticklabels=labels)
+        plt.xlabel("Predicted")
+        plt.ylabel("True")
+        plt.title("Confusion Matrix")
+        plt.savefig("Confusion_matrix_scratch.png", dpi=300)
         # plt.show()
 
     def log_final_confusion_matrix(self, X, y):
