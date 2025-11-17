@@ -303,12 +303,21 @@ class FFNN:
                 loss = self.compute_loss(predictions, y_batch)
                 epoch_loss += loss
                 num_batches += 1
-                
+
                 # Backward pass
                 dW, db = self.backward(X_batch, y_batch)
-                
+
+                # Log gradients
+                wandb.log({"batch_gradients": np.mean([np.linalg.norm(dw) for dw in dW])})  # optional summary
+                self.log_gradients(dW, db)
+
                 # Update weights
                 self.update_weights(dW, db)
+
+                # Optionally log weights at epoch end
+                if (i + self.batch_size) >= num_samples:  # end of epoch
+                    self.log_weights()
+
             
             # Calculate average loss for the epoch
             avg_loss = epoch_loss / num_batches
@@ -383,7 +392,7 @@ class FFNN:
         plt.savefig("confusion_matrix.png", dpi=300)
         # plt.show()
 
-    def confusion_matrix_scratch_plot(self, X, y):
+    def confusion_matrix_scratch_plot(self, X, y, path):
         preds = self.predict(X)
         true, pred = y, preds
         labels = sorted(set(true))  # include all labels
@@ -401,7 +410,7 @@ class FFNN:
         plt.xlabel("Predicted")
         plt.ylabel("True")
         plt.title("Confusion Matrix")
-        plt.savefig("Confusion_matrix_scratch.png", dpi=300)
+        plt.savefig(path, dpi=300)
         # plt.show()
 
     def log_final_confusion_matrix(self, X, y):
@@ -506,5 +515,18 @@ class FFNN:
             })
         
         return summary
-    
-    
+
+    def log_weights(self):
+        """Log parameter histograms to WandB."""
+        for i, W in enumerate(self.weights):
+            wandb.log({f"weights/layer_{i}": wandb.Histogram(W)})
+        for i, b in enumerate(self.biases):
+            wandb.log({f"biases/layer_{i}": wandb.Histogram(b)})
+
+    def log_gradients(self, dW, db):
+        """Log gradient norms to WandB."""
+        for i, grad in enumerate(dW):
+            wandb.log({f"gradients/layer_{i}": np.linalg.norm(grad)})
+        for i, grad_b in enumerate(db):
+            wandb.log({f"gradients/bias_layer_{i}": np.linalg.norm(grad_b)})
+  

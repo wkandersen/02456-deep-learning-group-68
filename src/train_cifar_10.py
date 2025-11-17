@@ -137,10 +137,9 @@ def train(args=None):
         confusion_save_path = None
         if args.save_plots:
             confusion_save_path = f"{args.save_plots}/confusion_matrix_{experiment_name}.png"
-        model.confusion_matrix_plot(X_test, y_test)
+            model.confusion_matrix_scratch_plot(X_test, y_test)
     
     model.log_final_confusion_matrix(X_val, y_val)
-    model.confusion_matrix_scratch_plot(X_test, y_test)
 
     print(f"Test accuracy: {test_accuracy:.4f}")
     
