@@ -10,9 +10,6 @@
 #BSUB -B
 #BSUB -n 4
 
-
-conda activate computer_vison
-
 source ~/miniconda3/bin/activate
-
+conda activate computer_vison
 python src/sweep_train_fashion_mnist.py
