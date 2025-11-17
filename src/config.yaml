@@ -6,13 +6,13 @@
 # Sweep Configuration
 method: bayes  # Options: grid, random, bayes
 metric:
-  name: val_accuracy
-  goal: maximize
+  name: val_loss
+  goal: minimize
 
 # Parameter Search Space
 parameters:
   num_epochs:
-    value: 75
+    value: 150
   
   learning_rate:
     distribution: log_uniform_values
@@ -44,6 +44,9 @@ parameters:
   
   weight_init:
     values: ["xavier", "he", "random"]
+
+  dropout_rate:
+    values: [0, 0.3, 0.5]
   
   loss:
     value: "cross_entropy"  # Fixed parameter

@@ -1,5 +1,5 @@
-from model_cifar_10 import FFNN
-from load_data import DataLoaderCifar10
+from model_fashion_10 import FashionFFNN
+from load_data import DataLoaderFashionMNIST
 import numpy as np
 from datetime import datetime
 import wandb
@@ -44,17 +44,18 @@ def sweep_objective():
     batch_size = config.batch_size
     l2_coeff = config.l2_coeff
     weight_init = config.weight_init    
-    dropout_prob = config.dropout_rate
     activation = config.activation
     loss = config.loss
+    dropout_prob = config.dropout_rate
 
-    # Load CIFAR-10 data using formatted data
-    data_loader = DataLoaderCifar10()
-    _, (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
+    # Load Fashion MNIST data using formatted data
+    data_loader = DataLoaderFashionMNIST()
+    _, (X_val, y_val), (X_test, y_test) = data_loader.get_data()
     (X_subset, y_subset) = data_loader.create_subset(split_ratio=0.25)
 
     # Initialize the model
-    model = FFNN(
+    model = FashionFFNN(
+        input_size=784,
         num_epochs=num_epochs,
         hidden_layers=hidden_layers,
         lr=lr,
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     wandb.login()
     
     # Add custom name to sweep configuration
-    sweep_configuration["name"] = f"CIFAR10_Sweep_{user}_{datetime.now():%Y-%m-%d_%H-%M-%S}"
+    sweep_configuration["name"] = f"FASHION_Sweep_{user}_{datetime.now():%Y-%m-%d_%H-%M-%S}"
     
     # Get project name from config
     project_name = sweep_configuration.get("project", "Deep_learning_project")
@@ -91,4 +92,4 @@ if __name__ == "__main__":
     sweep_id = wandb.sweep(sweep=sweep_configuration, project=project_name)
     
     # Run sweep agents
-    wandb.agent(sweep_id, function=sweep_objective, count=50)  # Run 10 trials
+    wandb.agent(sweep_id, function=sweep_objective, count=50)  # Run 20 trials
