@@ -43,15 +43,13 @@ def sweep_objective():
     optimizer = config.optimizer
     batch_size = config.batch_size
     l2_coeff = config.l2_coeff
-<<<<<<< HEAD
     weight_init = config.weight_init    
     dropout_prob = config.dropout_rate
-=======
-    weight_init = config.weight_init
->>>>>>> 02191678fd69f5ba7a2e94d1a4c02a6375bd969f
     activation = config.activation
     loss = config.loss
-    dropout = config.dropout
+    dropout_prob = config.dropout_rate
+    standardize = config.standardize
+    batch_norm = config.batch_norm
 
     # Load CIFAR-10 data using formatted data
     data_loader = DataLoaderCifar10()
@@ -69,11 +67,9 @@ def sweep_objective():
         weight_init=weight_init,
         activation=activation,
         _loss=loss,
-<<<<<<< HEAD
-        dropout_prob=dropout_prob
-=======
-        dropout_prob=dropout
->>>>>>> 02191678fd69f5ba7a2e94d1a4c02a6375bd969f
+        dropout_prob=dropout_prob,
+        batch_norm=batch_norm,
+        standardize=standardize
     )
 
     # Train the model
@@ -100,4 +96,4 @@ if __name__ == "__main__":
     sweep_id = wandb.sweep(sweep=sweep_configuration, project=project_name)
     
     # Run sweep agents
-    wandb.agent(sweep_id, function=sweep_objective, count=50)  # Run 50 trials
+    wandb.agent(sweep_id, function=sweep_objective, count=100)  # Run 50 trials
