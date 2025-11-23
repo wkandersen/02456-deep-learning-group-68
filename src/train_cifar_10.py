@@ -26,19 +26,24 @@ def parse_arguments():
                         help='Optimizer type (default: adam)')
     parser.add_argument('--l2_coeff', type=float, default=0.0001,
                         help='L2 regularization coefficient (default: 0.0001)')
+    parser.add_argument('--dropout_rate', type=float, default=0.5,
+                        help='Dropout rate (default: 0.5)')
     
     # Model architecture
     parser.add_argument('--hidden_layers', type=str, default='1024,512,256',
                         help='Hidden layers as comma-separated values (default: 1024,512,256)')
     parser.add_argument('--activation', type=str, default='relu',
-                        choices=['relu', 'tanh', 'sigmoid'],
+                        choices=['relu', 'tanh', 'sigmoid', 'leaky_relu'],
                         help='Activation function (default: relu)')
     parser.add_argument('--weight_init', type=str, default='he',
                         choices=['xavier', 'he', 'random'],
                         help='Weight initialization method (default: he)')
     parser.add_argument('--loss', type=str, default='cross_entropy',
-                        choices=['cross_entropy', 'mse'],
                         help='Loss function (default: cross_entropy)')
+    parser.add_argument('--batch_norm', action='store_true',
+                        help='Enable batch normalization')
+    parser.add_argument('--standardize', action='store_true',
+                        help='Enable input standardization')
     
     # Data parameters
     parser.add_argument('--subset_ratio', type=float, default=0.25,
@@ -103,6 +108,8 @@ def train(args=None):
                 "activation": args.activation,
                 "loss": args.loss,
                 "subset_ratio": args.subset_ratio,
+                "batch_norm": args.batch_norm,
+                "standardize": args.standardize
             },
         )
 
@@ -116,7 +123,11 @@ def train(args=None):
         l2_coeff=args.l2_coeff,
         weight_init=args.weight_init,
         activation=args.activation,
-        _loss=args.loss
+        _loss=args.loss,
+        dropout_prob=args.dropout_rate,
+        batch_norm=args.batch_norm,
+        standardize=args.standardize
+
     )
 
     # Train the model

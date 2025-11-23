@@ -22,10 +22,12 @@ def parse_arguments():
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size (default: 64)')
     parser.add_argument('--optimizer', type=str, default='adam',
-                        choices=['adam', 'sgd', 'rmsprop'],
+                        choices=['adam', 'sgd'],
                         help='Optimizer type (default: adam)')
     parser.add_argument('--l2_coeff', type=float, default=0.0001,
                         help='L2 regularization coefficient (default: 0.0001)')
+    parser.add_argument('--dropout_rate', type=float, default=0.5,
+                        help='Dropout rate (default: 0.5)')
     
     # Model architecture
     parser.add_argument('--input_size', type=int, default=784,
@@ -36,11 +38,14 @@ def parse_arguments():
                         choices=['relu', 'tanh', 'sigmoid', 'leaky_relu'],
                         help='Activation function (default: relu)')
     parser.add_argument('--weight_init', type=str, default='he',
-                        choices=['xavier', 'he', 'normal'],
+                        choices=['xavier', 'he', 'random'],
                         help='Weight initialization method (default: he)')
     parser.add_argument('--loss', type=str, default='cross_entropy',
-                        choices=['cross_entropy', 'mse'],
                         help='Loss function (default: cross_entropy)')
+    parser.add_argument('--batch_norm', action='store_true',
+                        help='Enable batch normalization')
+    parser.add_argument('--standardize', action='store_true',
+                        help='Enable input standardization')
     
     # Data parameters
     parser.add_argument('--use_subset', action='store_true',
@@ -75,6 +80,13 @@ def train(args=None):
     # Get formatted data ready for neural networks
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_data()
     
+    ##normalize dataset
+    mean = np.mean(X_train, axis=0)
+    std = np.std(X_train, axis=0) + 1e-8  # Add small value to avoid division by zero
+    X_train = (X_train - mean) / std
+    X_val = (X_val - mean) / std
+    X_test = (X_test - mean) / std
+    
     # Use subset if requested
     if args.use_subset:
         X_train, y_train = data_loader.create_subset(split_ratio=args.subset_ratio)
@@ -104,6 +116,9 @@ def train(args=None):
                 "loss": args.loss,
                 "use_subset": args.use_subset,
                 "subset_ratio": args.subset_ratio if args.use_subset else 1.0,
+                "standardize": args.standardize,
+                "batch_norm": args.batch_norm,
+                "dropout_rate": args.dropout_rate
             },
         )
 
@@ -119,29 +134,25 @@ def train(args=None):
         weight_init=args.weight_init,
         activation=args.activation,
         _loss=args.loss,
-        dropout_prob=args.dropout
+        dropout_prob=args.dropout_rate,
+        batch_norm=args.batch_norm,
+        standardize=args.standardize
     )
 
     # Train the model
     model.train(X_train, y_train, X_val, y_val)
     
-    # Plot training history if not disabled
-    if not args.no_plots:
-        save_path = None
-        if args.save_plots:
-            save_path = f"{args.save_plots}/training_history_{experiment_name}.png"
-        model.plot_training_history(save_path=save_path)
 
     # Evaluate the model
     test_accuracy = model.evaluate(X_test, y_test)
-    
-    # Generate confusion matrix and plots
-    if not args.no_plots:
-        model.confusion_matrix_plot(X_test, y_test)
-    
-    model.log_final_confusion_matrix(X_val, y_val)
-
     print(f"Test accuracy: {test_accuracy:.4f}")
+
+    # # Generate confusion matrix and plots
+    # if not args.no_plots:
+    #     model.confusion_matrix_plot(X_test, y_test)
+    
+    # model.log_final_confusion_matrix(X_val, y_val)
+
     
     if not args.no_wandb:
         wandb.log({"final_test_accuracy": test_accuracy})

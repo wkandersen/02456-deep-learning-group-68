@@ -10,28 +10,43 @@ class FashionFFNN(FFNN):
         super(FashionFFNN, self).__init__(*args, **kwargs)
     
     def forward(self, X, training=True):
+        # Ensure training is a boolean value
+        training = bool(training)
+        
         self.activations = []
         self.z_values = []
+        self.bn_cache = []  # Store batch norm intermediate values for backprop
         a = X
         a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
-        
+
+        if self.standardize:
+            a = self._standardize(a)
+
         # Forward pass through hidden layers
         for i in range(self.num_hidden_layers):
             z = np.dot(a, self.weights[i]) + self.biases[i]
+            
+            # Apply batch normalization if enabled
             if self.batch_norm:
-                gamma = np.ones((1, self.hidden_layers[i]))  # Use actual layer size
-                beta = np.zeros((1, self.hidden_layers[i]))   # Use actual layer size
-                z = self._batch_normalize(z, gamma, beta)
+                z, z_norm, mu, var = self._batch_normalize(z, i, training)
+                self.bn_cache.append({'z_norm': z_norm, 'mu': mu, 'var': var})
+            else:
+                self.bn_cache.append(None)
+                
+            self.z_values.append(z)
+            
+            # Apply activation
+            a = self._activation(z)
+            
             # Only apply dropout during training
             if self.dropout_prob > 0 and training:
-                z = self._dropout(z, self.dropout_prob)
-            a = self._activation(z)
-            self.z_values.append(z)
+                a = self._dropout(a, self.dropout_prob)
+                
             self.activations.append(a)
         
-        # Output layer
+        # Output layer (no batch norm, no dropout)
         z = np.dot(a, self.weights[-1]) + self.biases[-1]
         self.z_values.append(z)
         self.activations.append(z)  # No activation function at output layer

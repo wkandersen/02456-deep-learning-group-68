@@ -40,13 +40,19 @@ parameters:
     ]
   
   activation:
-    values: ["relu", "tanh", "sigmoid"]
+    values: ["relu", "tanh", "sigmoid", "leaky_relu"]
   
   weight_init:
     values: ["xavier", "he", "random"]
 
   dropout_rate:
-    values: [0, 0.3, 0.5]
+    values: [0, 0.1, 0.2, 0.3, 0.5]
+
+  standardize:
+    values: [True, False]
+
+  batch_norm:
+    values: [True, False]
   
   loss:
     value: "cross_entropy"  # Fixed parameter
