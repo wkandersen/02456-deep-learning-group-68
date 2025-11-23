@@ -8,7 +8,7 @@ import seaborn as sns
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
 class FFNN:
-    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=5):
+    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=5, standardize=False):
         self.num_epochs = num_epochs
         self.hidden_layers = hidden_layers  # Now a list like [512, 128, 64]
         self.num_hidden_layers = len(hidden_layers)  # Number of layers derived from list length
@@ -26,6 +26,16 @@ class FFNN:
         self.batch_norm = batch_norm  # Initialize batch norm flag
         self.dropout_prob = dropout_prob  # Initialize dropout probability
         self.patience=patience
+        self.standardize = standardize  # Initialize standardization flag
+        
+        # Initialize batch normalization parameters if enabled
+        if self.batch_norm:
+            self.bn_gamma = []  # Scale parameters
+            self.bn_beta = []   # Shift parameters
+            self.bn_running_mean = []  # Running averages for inference
+            self.bn_running_var = []
+            self.bn_momentum = 0.9  # Momentum for running averages
+            
         self._initialize_weights()
         self.loss_function = loss_function(_loss)
         self.activations = []
@@ -56,13 +66,65 @@ class FFNN:
             b = np.zeros((1, layer_sizes[i + 1]))
             self.weights.append(W)
             self.biases.append(b)
+            
+        # Initialize batch normalization parameters for hidden layers
+        if self.batch_norm:
+            for i in range(self.num_hidden_layers):
+                layer_size = self.hidden_layers[i]
+                self.bn_gamma.append(np.ones((1, layer_size)))
+                self.bn_beta.append(np.zeros((1, layer_size)))
+                self.bn_running_mean.append(np.zeros((1, layer_size)))
+                self.bn_running_var.append(np.ones((1, layer_size)))
 
-    def _batch_normalize(self, X, gamma, beta, eps=1e-5):
-        mu = np.mean(X, axis=0)
-        var = np.var(X, axis=0)
+    def _batch_normalize(self, X, layer_idx, training=True, eps=1e-5):
+        """
+        Improved batch normalization with learnable parameters and running statistics
+        
+        Args:
+            X: Input tensor (batch_size, features)
+            layer_idx: Index of the layer for accessing gamma/beta parameters
+            training: Whether in training mode (use batch stats) or inference mode (use running stats)
+            eps: Small constant for numerical stability
+        """
+        # Ensure training is a boolean value
+        training = bool(training)
+        
+        if training:
+            # Training mode: use batch statistics
+            mu = np.mean(X, axis=0, keepdims=True)
+            var = np.var(X, axis=0, keepdims=True)
+            
+            # Update running averages
+            self.bn_running_mean[layer_idx] = (self.bn_momentum * self.bn_running_mean[layer_idx] + 
+                                             (1 - self.bn_momentum) * mu)
+            self.bn_running_var[layer_idx] = (self.bn_momentum * self.bn_running_var[layer_idx] + 
+                                            (1 - self.bn_momentum) * var)
+        else:
+            # Inference mode: use running statistics
+            mu = self.bn_running_mean[layer_idx]
+            var = self.bn_running_var[layer_idx]
+        
+        # Normalize
         X_norm = (X - mu) / np.sqrt(var + eps)
-        out = gamma * X_norm + beta
-        return out
+        
+        # Scale and shift with learnable parameters
+        out = self.bn_gamma[layer_idx] * X_norm + self.bn_beta[layer_idx]
+        
+        return out, X_norm, mu, var  # Return additional values needed for backprop
+    
+    def _standardize(self, X, eps=1e-5):
+        """
+        Standardize input data to have zero mean and unit variance
+        
+        Args:
+            X: Input tensor (batch_size, features)
+            eps: Small constant for numerical stability
+        """
+        mu = np.mean(X, axis=0, keepdims=True)
+        var = np.var(X, axis=0, keepdims=True)
+        
+        X_std = (X - mu) / np.sqrt(var + eps)
+        return X_std
     
     def _dropout(self, X, drop_prob):
         mask = (np.random.rand(*X.shape) > drop_prob) / (1.0 - drop_prob)
@@ -75,6 +137,8 @@ class FFNN:
             return 1 / (1 + np.exp(-x))
         elif self.activation == 'tanh':
             return np.tanh(x)
+        elif self.activation == 'leaky_relu':
+            return np.where(x > 0, x, 0.01 * x)
 
     def _activation_derivative(self, x):
         if self.activation == 'relu':
@@ -84,30 +148,49 @@ class FFNN:
             return sigmoid_x * (1 - sigmoid_x)
         elif self.activation == 'tanh':
             return 1 - np.tanh(x) ** 2
+        elif self.activation == 'leaky_relu':
+            dx = np.ones_like(x)
+            dx[x < 0] = 0.01
+            return dx
 
     def forward(self, X, training=True):
+        # Ensure training is a boolean value
+        training = bool(training)
+        
         self.activations = []
         self.z_values = []
+        self.bn_cache = []  # Store batch norm intermediate values for backprop
         a = X
         a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
-        
+
+        if self.standardize:
+            a = self._standardize(a)
+
         # Forward pass through hidden layers
         for i in range(self.num_hidden_layers):
             z = np.dot(a, self.weights[i]) + self.biases[i]
+            
+            # Apply batch normalization if enabled
             if self.batch_norm:
-                gamma = np.ones((1, self.hidden_layers[i]))  # Use actual layer size
-                beta = np.zeros((1, self.hidden_layers[i]))   # Use actual layer size
-                z = self._batch_normalize(z, gamma, beta)
+                z, z_norm, mu, var = self._batch_normalize(z, i, training)
+                self.bn_cache.append({'z_norm': z_norm, 'mu': mu, 'var': var})
+            else:
+                self.bn_cache.append(None)
+                
+            self.z_values.append(z)
+            
+            # Apply activation
+            a = self._activation(z)
+            
             # Only apply dropout during training
             if self.dropout_prob > 0 and training:
-                z = self._dropout(z, self.dropout_prob)
-            a = self._activation(z)
-            self.z_values.append(z)
+                a = self._dropout(a, self.dropout_prob)
+                
             self.activations.append(a)
         
-        # Output layer
+        # Output layer (no batch norm, no dropout)
         z = np.dot(a, self.weights[-1]) + self.biases[-1]
         self.z_values.append(z)
         self.activations.append(z)  # No activation function at output layer
