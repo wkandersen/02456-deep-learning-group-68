@@ -6,6 +6,7 @@ import wandb
 import getpass
 import argparse
 
+np.random.seed(42)
 user = getpass.getuser()
 
 wandb.login(key="b26660ac7ccf436b5e62d823051917f4512f987a")

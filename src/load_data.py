@@ -194,14 +194,24 @@ if __name__ == "__main__":
 
     # Reshape flattened image back to 32x32x3 for display
     if dataset_choice.lower() == "cifar":
-        first_image = X_train[0].reshape(32, 32, 3)
-        # Denormalize for proper display (since we normalized to [0,1])
-        first_image_display = (first_image * 255).astype(np.uint8)
-        
-        plt.imshow(first_image_display)
-        first_label = y_train[0]
-        class_name = class_names[first_label]
-        plt.title(f"Class {first_label}: {class_name}")
+        # first_image = X_train[0].reshape(32, 32, 3)
+        # # Denormalize for proper display (since we normalized to [0,1])
+        # first_image_display = (first_image * 255).astype(np.uint8)
+
+        # show 10 unique classes in subplot after denormalizing
+        for unique_class in range(10):
+            # Find the first occurrence of the unique class
+            for i, label in enumerate(y_train):
+                if label == unique_class:
+                    break
+            plt.subplot(2, 5, unique_class+1)
+            # Denormalize for proper display (since we normalized to [0,1])
+            denormalized_image = (X_train[unique_class] * 255).astype(np.uint8)
+            plt.imshow(denormalized_image.reshape(32, 32, 3))
+            first_label = y_train[unique_class]
+            class_name = class_names[first_label]
+            plt.title(f"Class {first_label}: {class_name}")
+            plt.axis('off')  # Hide axes for cleaner display
         plt.show()
 
     if dataset_choice.lower() == "fashion":
