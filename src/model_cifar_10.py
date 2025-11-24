@@ -1,4 +1,4 @@
-from loss_function import loss_function
+# from slet_til_sidst.loss_function import loss_function
 import numpy as np
 import matplotlib.pyplot as plt
 import wandb
@@ -36,7 +36,7 @@ class FFNN:
             self.bn_momentum = 0.9  # Momentum for running averages
             
         self._initialize_weights()
-        self.loss_function = loss_function(_loss)
+        # self.loss_function = loss_function(_loss)
         self.activations = []
         self.z_values = []
         
@@ -110,6 +110,43 @@ class FFNN:
         out = self.bn_gamma[layer_idx] * X_norm + self.bn_beta[layer_idx]
         
         return out, X_norm, mu, var  # Return additional values needed for backprop
+    
+    def _batch_norm_backward(self, dout, cache, layer_idx, eps=1e-5):
+        """
+        Backward pass for batch normalization
+        
+        Args:
+            dout: Gradient of loss w.r.t. output of batch norm
+            cache: Cache from forward pass containing z_norm, mu, var
+            layer_idx: Layer index for accessing gamma/beta
+            eps: Small constant for numerical stability
+        """
+        z_norm = cache['z_norm']
+        mu = cache['mu']
+        var = cache['var']
+        
+        m = dout.shape[0]  # batch size
+        
+        # Gradient w.r.t. gamma and beta
+        d_gamma = np.sum(dout * z_norm, axis=0, keepdims=True)
+        d_beta = np.sum(dout, axis=0, keepdims=True)
+        
+        # Gradient w.r.t. normalized input
+        d_z_norm = dout * self.bn_gamma[layer_idx]
+        
+        # Gradient w.r.t. variance
+        d_var = np.sum(d_z_norm * (cache['z_norm'] * -0.5 * (var + eps)**(-1.5)), axis=0, keepdims=True)
+        
+        # Gradient w.r.t. mean
+        d_mu = np.sum(d_z_norm * (-1.0 / np.sqrt(var + eps)), axis=0, keepdims=True)
+        d_mu += d_var * np.mean(-2.0 * (z_norm * np.sqrt(var + eps) + mu - mu), axis=0, keepdims=True)
+        
+        # Gradient w.r.t. input
+        dx = d_z_norm / np.sqrt(var + eps)
+        dx += d_var * 2.0 * (z_norm * np.sqrt(var + eps) + mu - mu) / m
+        dx += d_mu / m
+        
+        return dx, d_gamma, d_beta
     
     def _dropout(self, X, drop_prob):
         mask = (np.random.rand(*X.shape) > drop_prob) / (1.0 - drop_prob)
@@ -203,9 +240,9 @@ class FFNN:
                 l2_penalty = self.l2_coeff * sum(np.sum(w**2) for w in self.weights)
                 loss += l2_penalty
                 
-        elif self._loss == 'mse':
-            # Use the existing MSE loss function
-            loss = self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
+        # elif self._loss == 'mse':
+        #     # Use the existing MSE loss function
+        #     loss = self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
         else:
             raise ValueError(f"Unsupported loss function: {self._loss}")
         
@@ -236,6 +273,11 @@ class FFNN:
         # Initialize gradients
         dW = [np.zeros_like(w) for w in self.weights]
         db = [np.zeros_like(b) for b in self.biases]
+        
+        # Initialize batch norm gradients if batch norm is enabled
+        if self.batch_norm:
+            d_bn_gamma = [np.zeros_like(gamma) for gamma in self.bn_gamma]
+            d_bn_beta = [np.zeros_like(beta) for beta in self.bn_beta]
         
         # Compute output layer error based on the loss function being used
         predictions = self.activations[-1]  # Output layer activations (logits)
@@ -278,13 +320,35 @@ class FFNN:
                 # Gradient w.r.t. previous layer activations
                 dA_prev = np.dot(dZ, self.weights[i].T)
                 
+                # Apply dropout mask if it was used during forward pass
+                if self.dropout_prob > 0:
+                    # Note: In a complete implementation, we'd need to store the dropout mask
+                    # For now, we'll skip this as it requires storing the mask during forward pass
+                    pass
+                
                 # Gradient w.r.t. previous layer pre-activations (z values)
                 z_prev = self.z_values[i-1]  # Pre-activation values of previous layer
-                dZ = dA_prev * self._activation_derivative(z_prev)
+                dZ_prev = dA_prev * self._activation_derivative(z_prev)
+                
+                # If batch normalization was applied to the previous layer, backprop through it
+                if self.batch_norm and i-1 < self.num_hidden_layers:
+                    layer_idx = i-1
+                    cache = self.bn_cache[layer_idx]
+                    
+                    if cache is not None:  # Batch norm was applied
+                        # Backprop through batch normalization
+                        dZ_prev, d_gamma, d_beta = self._batch_norm_backward(dZ_prev, cache, layer_idx)
+                        d_bn_gamma[layer_idx] += d_gamma
+                        d_bn_beta[layer_idx] += d_beta
+                
+                dZ = dZ_prev
         
-        return dW, db
+        if self.batch_norm:
+            return dW, db, d_bn_gamma, d_bn_beta
+        else:
+            return dW, db
     
-    def update_weights(self, dW, db):
+    def update_weights(self, dW, db, d_bn_gamma=None, d_bn_beta=None):
         """
         Update weights and biases using computed gradients
         """
@@ -293,6 +357,12 @@ class FFNN:
             for i in range(len(self.weights)):
                 self.weights[i] -= self.lr * dW[i]
                 self.biases[i] -= self.lr * db[i]
+            
+            # Update batch norm parameters if provided
+            if d_bn_gamma is not None and d_bn_beta is not None:
+                for i in range(len(self.bn_gamma)):
+                    self.bn_gamma[i] -= self.lr * d_bn_gamma[i]
+                    self.bn_beta[i] -= self.lr * d_bn_beta[i]
                 
         elif self.optimizer == 'adam':
             # Adam optimizer (simplified version)
@@ -303,6 +373,13 @@ class FFNN:
                 self.s_dW = [np.zeros_like(w) for w in self.weights]
                 self.s_db = [np.zeros_like(b) for b in self.biases]
                 self.t = 0  # time step
+                
+                # Initialize batch norm momentum terms if needed
+                if self.batch_norm:
+                    self.v_bn_gamma = [np.zeros_like(g) for g in self.bn_gamma]
+                    self.v_bn_beta = [np.zeros_like(b) for b in self.bn_beta]
+                    self.s_bn_gamma = [np.zeros_like(g) for g in self.bn_gamma]
+                    self.s_bn_beta = [np.zeros_like(b) for b in self.bn_beta]
             
             self.t += 1
             beta1, beta2 = 0.9, 0.999
@@ -326,12 +403,39 @@ class FFNN:
                 # Update weights
                 self.weights[i] -= self.lr * v_dW_corrected / (np.sqrt(s_dW_corrected) + epsilon)
                 self.biases[i] -= self.lr * v_db_corrected / (np.sqrt(s_db_corrected) + epsilon)
+            
+            # Update batch norm parameters with Adam if provided
+            if d_bn_gamma is not None and d_bn_beta is not None:
+                for i in range(len(self.bn_gamma)):
+                    # Update momentum for gamma
+                    self.v_bn_gamma[i] = beta1 * self.v_bn_gamma[i] + (1 - beta1) * d_bn_gamma[i]
+                    self.s_bn_gamma[i] = beta2 * self.s_bn_gamma[i] + (1 - beta2) * (d_bn_gamma[i] ** 2)
+                    
+                    # Update momentum for beta
+                    self.v_bn_beta[i] = beta1 * self.v_bn_beta[i] + (1 - beta1) * d_bn_beta[i]
+                    self.s_bn_beta[i] = beta2 * self.s_bn_beta[i] + (1 - beta2) * (d_bn_beta[i] ** 2)
+                    
+                    # Bias correction
+                    v_gamma_corrected = self.v_bn_gamma[i] / (1 - beta1 ** self.t)
+                    v_beta_corrected = self.v_bn_beta[i] / (1 - beta1 ** self.t)
+                    s_gamma_corrected = self.s_bn_gamma[i] / (1 - beta2 ** self.t)
+                    s_beta_corrected = self.s_bn_beta[i] / (1 - beta2 ** self.t)
+                    
+                    # Update parameters
+                    self.bn_gamma[i] -= self.lr * v_gamma_corrected / (np.sqrt(s_gamma_corrected) + epsilon)
+                    self.bn_beta[i] -= self.lr * v_beta_corrected / (np.sqrt(s_beta_corrected) + epsilon)
         
         else:
             # Default to SGD if optimizer not recognized
             for i in range(len(self.weights)):
                 self.weights[i] -= self.lr * dW[i]
                 self.biases[i] -= self.lr * db[i]
+            
+            # Update batch norm parameters if provided
+            if d_bn_gamma is not None and d_bn_beta is not None:
+                for i in range(len(self.bn_gamma)):
+                    self.bn_gamma[i] -= self.lr * d_bn_gamma[i]
+                    self.bn_beta[i] -= self.lr * d_bn_beta[i]
         
     def train(self, X_train, y_train, X_val=None, y_val=None):
         num_samples = X_train.shape[0]
@@ -359,14 +463,20 @@ class FFNN:
                 num_batches += 1
 
                 # Backward pass
-                dW, db = self.backward(X_batch, y_batch)
+                if self.batch_norm:
+                    dW, db, d_bn_gamma, d_bn_beta = self.backward(X_batch, y_batch)
+                else:
+                    dW, db = self.backward(X_batch, y_batch)
 
                 # Log gradients
                 wandb.log({"batch_gradients": np.mean([np.linalg.norm(dw) for dw in dW])})  # optional summary
                 self.log_gradients(dW, db)
 
                 # Update weights
-                self.update_weights(dW, db)
+                if self.batch_norm:
+                    self.update_weights(dW, db, d_bn_gamma, d_bn_beta)
+                else:
+                    self.update_weights(dW, db)
 
                 # Optionally log weights at epoch end
                 if (i + self.batch_size) >= num_samples:  # end of epoch
