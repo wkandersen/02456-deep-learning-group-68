@@ -100,7 +100,13 @@ class DataLoaderFashionMNIST:
         x_train, y_train = self._get_train_data()
         x_val, y_val = self._get_validation_data()
         x_test, y_test = self._get_test_data()
-        return (x_train, y_train), (x_val, y_val), (x_test, y_test)
+        
+        # Flatten images: (N, 28, 28) -> (N, 784) and normalize to [0, 1]
+        x_train_flat = x_train.reshape(x_train.shape[0], -1).astype(np.float32) / 255.0
+        x_val_flat = x_val.reshape(x_val.shape[0], -1).astype(np.float32) / 255.0
+        x_test_flat = x_test.reshape(x_test.shape[0], -1).astype(np.float32) / 255.0
+        
+        return (x_train_flat, y_train), (x_val_flat, y_val), (x_test_flat, y_test)
         
     def get_class_names(self):
         """Get the list of class names"""
@@ -128,8 +134,11 @@ class DataLoaderFashionMNIST:
         subset_size = int(len(train_data) * split_ratio)
         subset_data = train_data[:subset_size]
         subset_targets = train_targets[:subset_size]
+        
+        # Flatten and normalize the subset data
+        subset_data_flat = subset_data.reshape(subset_data.shape[0], -1).astype(np.float32) / 255.0
 
-        return subset_data, subset_targets
+        return subset_data_flat, subset_targets
 
 
 

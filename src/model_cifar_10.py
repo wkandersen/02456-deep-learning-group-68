@@ -146,7 +146,6 @@ class FFNN:
         self.z_values = []
         self.bn_cache = []  # Store batch norm intermediate values for backprop
         a = X
-        a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
 
@@ -195,7 +194,6 @@ class FFNN:
             probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
             
             # Compute cross-entropy loss
-            # Avoid log(0) by adding small epsilon
             eps = 1e-15
             probs = np.clip(probs, eps, 1 - eps)
             loss = -np.mean(np.sum(targets_one_hot * np.log(probs), axis=1))
@@ -209,16 +207,7 @@ class FFNN:
             # Use the existing MSE loss function
             loss = self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
         else:
-            # Default to cross-entropy
-            exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
-            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-            eps = 1e-15
-            probs = np.clip(probs, eps, 1 - eps)
-            loss = -np.mean(np.sum(targets_one_hot * np.log(probs), axis=1))
-            
-            if self.l2_coeff > 0:
-                l2_penalty = self.l2_coeff * sum(np.sum(w**2) for w in self.weights)
-                loss += l2_penalty
+            raise ValueError(f"Unsupported loss function: {self._loss}")
         
         return loss
     
@@ -394,13 +383,15 @@ class FFNN:
             # Store training metrics
             self.train_loss_history.append(avg_loss)
             self.train_acc_history.append(train_accuracy)
-            if epoch % 5 == 0:
+            if (epoch+1) % 5 == 0:
                 print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
             wandb.log({"train_loss": avg_loss, "train_accuracy": train_accuracy})
             
             # Validate if validation data is provided
             if X_val is not None and y_val is not None:
                 val_accuracy, val_loss = self.validate(X_val, y_val)
+                if (epoch+1) % 5 == 0:
+                    print(f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
                 # Store validation metrics
                 self.val_loss_history.append(val_loss)
                 self.val_acc_history.append(val_accuracy)
@@ -426,7 +417,6 @@ class FFNN:
         preds = self.predict(X_val)
         accuracy = np.mean(preds == y_val)
         loss = self.compute_loss(self.forward(X_val, training=False), y_val)
-        print(f"Validation Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
         wandb.log({"val_loss": loss, "val_accuracy": accuracy})
         return accuracy, loss
 

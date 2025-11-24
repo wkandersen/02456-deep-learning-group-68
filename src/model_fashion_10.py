@@ -17,7 +17,6 @@ class FashionFFNN(FFNN):
         self.z_values = []
         self.bn_cache = []  # Store batch norm intermediate values for backprop
         a = X
-        a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
 
