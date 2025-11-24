@@ -41,6 +41,7 @@ def parse_arguments():
                         choices=['xavier', 'he', 'random'],
                         help='Weight initialization method (default: he)')
     parser.add_argument('--loss', type=str, default='cross_entropy',
+                        choices=['cross_entropy', 'mse'],
                         help='Loss function (default: cross_entropy)')
     parser.add_argument('--batch_norm', action='store_true',
                         help='Enable batch normalization')
@@ -73,10 +74,11 @@ def train(args=None):
     if args is None:
         args = parse_arguments()
     
-    # Parse hidden layers from string
-    hidden_layers = [int(x.strip()) for x in args.hidden_layers.split(',')]
-    # Parse hidden layers from string
-    hidden_layers = [int(x.strip()) for x in args.hidden_layers.split(',')]
+
+    if isinstance(args.hidden_layers, str):
+        hidden_layers = [int(x.strip()) for x in args.hidden_layers.split(',')]
+    else:
+        hidden_layers = list(args.hidden_layers)
     
     data_loader = DataLoaderCifar10()
     # Get formatted data ready for neural networks
@@ -136,8 +138,6 @@ def train(args=None):
         _loss=args.loss,
         dropout_prob=args.dropout_rate,
         batch_norm=args.batch_norm,
-        standardize=args.standardize
-
     )
 
     # Train the model
