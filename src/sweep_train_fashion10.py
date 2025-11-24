@@ -55,6 +55,13 @@ def sweep_objective():
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_data()
     (X_subset, y_subset) = data_loader.create_subset(split_ratio=0.25)
 
+    if standardize:
+        mean = np.mean(X_subset, axis=0)
+        std = np.std(X_subset, axis=0) + 1e-8  # Add small value to avoid division by zero
+        X_subset = (X_subset - mean) / std
+        X_val = (X_val - mean) / std
+        X_test = (X_test - mean) / std
+
     # Initialize the model
     model = FashionFFNN(
         input_size=784,  # Fashion-MNIST image size (28x28)
@@ -74,6 +81,7 @@ def sweep_objective():
 
     # Train the model
     model.train(X_subset, y_subset, X_val, y_val)
+
 
     # Evaluate the model
     test_accuracy = model.evaluate(X_test, y_test)
@@ -96,4 +104,4 @@ if __name__ == "__main__":
     sweep_id = wandb.sweep(sweep=sweep_configuration, project=project_name)
     
     # Run sweep agents
-    wandb.agent(sweep_id, function=sweep_objective, count=100)  # Run 50 trials
+    wandb.agent(sweep_id, function=sweep_objective, count=50)  # Run 50 trials

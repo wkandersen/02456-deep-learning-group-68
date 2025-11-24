@@ -56,6 +56,13 @@ def sweep_objective():
     _, (X_val, y_val), (X_test, y_test) = data_loader.get_formatted_data()
     (X_subset, y_subset) = data_loader.create_subset(split_ratio=0.25)
 
+    if standardize:
+        mean = np.mean(X_subset, axis=0)
+        std = np.std(X_subset, axis=0) + 1e-8  # Add small value to avoid division by zero
+        X_subset = (X_subset - mean) / std
+        X_val = (X_val - mean) / std
+        X_test = (X_test - mean) / std
+
     # Initialize the model
     model = FFNN(
         num_epochs=num_epochs,

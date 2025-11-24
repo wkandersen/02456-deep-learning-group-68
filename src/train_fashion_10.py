@@ -82,14 +82,14 @@ def train(args=None):
     data_loader = DataLoaderFashionMNIST()
     # Get formatted data ready for neural networks
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_data()
-    
-    ##normalize dataset
-    mean = np.mean(X_train, axis=0)
-    std = np.std(X_train, axis=0) + 1e-8  # Add small value to avoid division by zero
-    X_train = (X_train - mean) / std
-    X_val = (X_val - mean) / std
-    X_test = (X_test - mean) / std
-    
+
+    if args.standardize:
+        mean = np.mean(X_train, axis=0)
+        std = np.std(X_train, axis=0) + 1e-8  # Add small value to avoid division by zero
+        X_train = (X_train - mean) / std
+        X_val = (X_val - mean) / std
+        X_test = (X_test - mean) / std
+
     # Use subset if requested
     if args.use_subset:
         X_train, y_train = data_loader.create_subset(split_ratio=args.subset_ratio)

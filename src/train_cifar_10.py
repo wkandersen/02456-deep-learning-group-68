@@ -84,6 +84,14 @@ def train(args=None):
 
     if args.use_subset:
         X_train, y_train = data_loader.create_subset(split_ratio=args.subset_ratio)
+
+    if args.standardize:
+            mean = np.mean(X_train, axis=0)
+            std = np.std(X_train, axis=0) + 1e-8  # Add small value to avoid division by zero
+            X_train = (X_train - mean) / std
+            X_val = (X_val - mean) / std
+            X_test = (X_test - mean) / std
+
     input_size = 3072
     
     # Generate experiment name if not provided

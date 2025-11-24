@@ -112,20 +112,6 @@ class FFNN:
         
         return out, X_norm, mu, var  # Return additional values needed for backprop
     
-    def _standardize(self, X, eps=1e-5):
-        """
-        Standardize input data to have zero mean and unit variance
-        
-        Args:
-            X: Input tensor (batch_size, features)
-            eps: Small constant for numerical stability
-        """
-        mu = np.mean(X, axis=0, keepdims=True)
-        var = np.var(X, axis=0, keepdims=True)
-        
-        X_std = (X - mu) / np.sqrt(var + eps)
-        return X_std
-    
     def _dropout(self, X, drop_prob):
         mask = (np.random.rand(*X.shape) > drop_prob) / (1.0 - drop_prob)
         return X * mask

@@ -21,9 +21,6 @@ class FashionFFNN(FFNN):
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
 
-        if self.standardize:
-            a = self._standardize(a)
-
         # Forward pass through hidden layers
         for i in range(self.num_hidden_layers):
             z = np.dot(a, self.weights[i]) + self.biases[i]
