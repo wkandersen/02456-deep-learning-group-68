@@ -5,6 +5,7 @@ from datetime import datetime
 import wandb
 import getpass
 import argparse
+import os
 
 np.random.seed(42)
 
@@ -66,7 +67,7 @@ def parse_arguments():
     # Visualization
     parser.add_argument('--no_plots', action='store_true',
                         help='Disable plotting')
-    parser.add_argument('--save_plots', type=str, default=None,
+    parser.add_argument('--save_plots', type=str, default='Plots',
                         help='Directory to save plots')
     
     return parser.parse_args()
@@ -149,13 +150,17 @@ def train(args=None):
     test_accuracy = model.evaluate(X_test, y_test)
     print(f"Test accuracy: {test_accuracy:.4f}")
 
-    # # Generate confusion matrix and plots
-    # if not args.no_plots:
-    #     model.confusion_matrix_plot(X_test, y_test)
+    # Generate confusion matrix and plots
+    if not args.no_plots:
+        confusion_save_path = None
+        if args.save_plots:
+            # Ensure output directory exists
+            os.makedirs(args.save_plots, exist_ok=True)
+            confusion_save_path = f"{args.save_plots}/confusion_matrix_{experiment_name}.png"
+            model.confusion_matrix_scratch_plot(X_test, y_test, path=confusion_save_path)
     
-    # model.log_final_confusion_matrix(X_val, y_val)
+    model.log_final_confusion_matrix(X_val, y_val)
 
-    
     if not args.no_wandb:
         wandb.log({"final_test_accuracy": test_accuracy})
         
