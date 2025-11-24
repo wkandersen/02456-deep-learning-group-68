@@ -4,7 +4,7 @@
 #BSUB -e bash_outputs/sweep_cifar_%J.err
 #BSUB -R "rusage[mem=3G]"
 #BSUB -R "span[hosts=1]"
-#BSUB -W 12:00
+#BSUB -W 24:00
 #BSUB -q hpc
 #BSUB -B
 #BSUB -n 4

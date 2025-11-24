@@ -76,7 +76,6 @@ def sweep_objective():
         _loss=loss,
         dropout_prob=dropout_prob,
         batch_norm=batch_norm,
-        standardize=standardize
     )
 
     # Train the model

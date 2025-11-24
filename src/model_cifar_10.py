@@ -8,7 +8,7 @@ import seaborn as sns
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
 class FFNN:
-    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=5, standardize=False):
+    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=5):
         self.num_epochs = num_epochs
         self.hidden_layers = hidden_layers  # Now a list like [512, 128, 64]
         self.num_hidden_layers = len(hidden_layers)  # Number of layers derived from list length
@@ -26,7 +26,6 @@ class FFNN:
         self.batch_norm = batch_norm  # Initialize batch norm flag
         self.dropout_prob = dropout_prob  # Initialize dropout probability
         self.patience=patience
-        self.standardize = standardize  # Initialize standardization flag
         
         # Initialize batch normalization parameters if enabled
         if self.batch_norm:
@@ -150,9 +149,6 @@ class FFNN:
         a = a.reshape(a.shape[0], -1)  # Ensure input is 2D
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
-
-        if self.standardize:
-            a = self._standardize(a)
 
         # Forward pass through hidden layers
         for i in range(self.num_hidden_layers):

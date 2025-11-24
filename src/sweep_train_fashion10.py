@@ -46,13 +46,13 @@ def sweep_objective():
     weight_init = config.weight_init
     activation = config.activation
     loss = config.loss
-    dropout = config.dropout
+    dropout = config.dropout_rate
     batch_norm = config.batch_norm
     standardize = config.standardize
 
     # Load Fashion-MNIST data using formatted data
     data_loader = DataLoaderFashionMNIST()
-    (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_data()
+    (_, _), (X_val, y_val), (X_test, y_test) = data_loader.get_data()
     (X_subset, y_subset) = data_loader.create_subset(split_ratio=0.25)
 
     if standardize:
@@ -76,7 +76,6 @@ def sweep_objective():
         _loss=loss,
         dropout_prob=dropout,
         batch_norm=batch_norm,
-        standardize=standardize
     )
 
     # Train the model
