@@ -6,7 +6,6 @@ import wandb
 import getpass
 import argparse
 import os
-
 np.random.seed(42)
 
 user = getpass.getuser()
@@ -75,9 +74,11 @@ def parse_arguments():
 def train(args=None):
     if args is None:
         args = parse_arguments()
-    
-    # Parse hidden layers from string
-    hidden_layers = [int(x.strip()) for x in args.hidden_layers.split(',')]
+
+    if isinstance(args.hidden_layers, str):
+        hidden_layers = [int(x.strip()) for x in args.hidden_layers.split(',')]
+    else:
+        hidden_layers = list(args.hidden_layers)
 
     data_loader = DataLoaderFashionMNIST()
     # Get formatted data ready for neural networks
@@ -139,7 +140,6 @@ def train(args=None):
         _loss=args.loss,
         dropout_prob=args.dropout_rate,
         batch_norm=args.batch_norm,
-        standardize=args.standardize
     )
 
     # Train the model
@@ -165,6 +165,7 @@ def train(args=None):
         wandb.log({"final_test_accuracy": test_accuracy})
         
     return model, test_accuracy
+
 
 
 if __name__ == "__main__":
