@@ -149,8 +149,12 @@ class FFNN:
         return dx, d_gamma, d_beta
     
     def _dropout(self, X, drop_prob):
+        """
+        Apply dropout with inverted scaling during training
+        Returns both the output and the mask for use in backpropagation
+        """
         mask = (np.random.rand(*X.shape) > drop_prob) / (1.0 - drop_prob)
-        return X * mask
+        return X * mask, mask
 
     def _activation(self, x):
         if self.activation == 'relu':
@@ -182,6 +186,7 @@ class FFNN:
         self.activations = []
         self.z_values = []
         self.bn_cache = []  # Store batch norm intermediate values for backprop
+        self.dropout_masks = []  # Store dropout masks for backprop
         a = X
         assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
@@ -204,7 +209,10 @@ class FFNN:
             
             # Only apply dropout during training
             if self.dropout_prob > 0 and training:
-                a = self._dropout(a, self.dropout_prob)
+                a, mask = self._dropout(a, self.dropout_prob)
+                self.dropout_masks.append(mask)
+            else:
+                self.dropout_masks.append(None)
                 
             self.activations.append(a)
         
@@ -321,10 +329,11 @@ class FFNN:
                 dA_prev = np.dot(dZ, self.weights[i].T)
                 
                 # Apply dropout mask if it was used during forward pass
-                if self.dropout_prob > 0:
-                    # Note: In a complete implementation, we'd need to store the dropout mask
-                    # For now, we'll skip this as it requires storing the mask during forward pass
-                    pass
+                if self.dropout_prob > 0 and hasattr(self, 'dropout_masks'):
+                    layer_idx = i - 1  # Index for the previous layer
+                    if layer_idx < len(self.dropout_masks) and self.dropout_masks[layer_idx] is not None:
+                        # Apply the same mask that was used during forward pass
+                        dA_prev = dA_prev * self.dropout_masks[layer_idx]
                 
                 # Gradient w.r.t. previous layer pre-activations (z values)
                 z_prev = self.z_values[i-1]  # Pre-activation values of previous layer
