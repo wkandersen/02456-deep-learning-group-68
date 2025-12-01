@@ -900,7 +900,35 @@ class FFNN:
             model.bn_running_mean = model_state['bn_running_mean']
             model.bn_running_var = model_state['bn_running_var']
         
+        print(f"Model loaded from {filepath}")
         return model
+    
+    def save_weights_only(self, filepath):
+        """
+        Save only weights and biases (lightweight save).
+        
+        Args:
+            filepath (str): Path where to save the weights
+        """
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        weights_state = {
+            'weights': self.weights,
+            'biases': self.biases
+        }
+        
+        if self.batch_norm:
+            weights_state.update({
+                'bn_gamma': self.bn_gamma,
+                'bn_beta': self.bn_beta,
+                'bn_running_mean': self.bn_running_mean,
+                'bn_running_var': self.bn_running_var
+            })
+        
+        with open(filepath, 'wb') as f:
+            pickle.dump(weights_state, f)
+        
+        print(f"Weights saved to {filepath}")
     
     def load_weights_only(self, filepath):
         """

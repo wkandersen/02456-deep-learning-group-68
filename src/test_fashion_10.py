@@ -37,29 +37,19 @@ def test_model(args):
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
-    try:
-        # Load the trained model using the parent FFNN class
-        # Since FashionFFNN inherits from FFNN, we can load it as FFNN
-        from model_cifar_10 import FFNN
-        
-        # Try loading with notebook parameters for Fashion-MNIST first
-        try:
-            model = FFNN.load_model_with_notebook_params(args.model_path, 'fashion')
-            print("Loaded with Fashion-MNIST notebook parameters")
-        except:
-            # Fallback to regular loading with manual parameters
-            model = FFNN.load_model(args.model_path,
-                activation='leaky_relu',
-                optimizer='adam',
-                weight_init='xavier',
-                dropout_prob=0.3,
-                batch_size=128
-            )
-            print("Loaded with manual parameters")
 
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        return None, None
+    # Load the trained model using the parent FFNN class
+    # Since FashionFFNN inherits from FFNN, we can load it as FFNN
+    from model_cifar_10 import FFNN
+    # Fallback to regular loading with manual parameters
+    model = FFNN.load_model(args.model_path,
+        activation='leaky_relu',
+        optimizer='adam',
+        weight_init='xavier',
+        dropout_prob=0.3,
+        batch_size=128
+    )
+    print("Loaded with manual parameters")
 
     try:
         # Load test data
@@ -84,7 +74,7 @@ def test_model(args):
     print(f"\n{'='*50}")
     print(f"TEST RESULTS")
     print(f"{'='*50}")
-    print(f"Test Accuracy: {test_accuracy:.4f} ({test_accuracy*100:.2f}%)")
+    print(f"Test Accuracy: {bold_text}{test_accuracy:.4f} ({test_accuracy*100:.2f}%){reset_text}")
     print(f"Test Loss: {test_loss:.4f}")
     print(f"Evaluation time: {eval_time:.2f} seconds")
     print(f"Total test samples: {X_test.shape[0]}")
@@ -98,7 +88,6 @@ def test_model(args):
         
     # Generate confusion matrix if requested
     if args.confusion_matrix:
-        cm_path = os.path.join(args.output_dir, 'confusion_matrix_fashion.png')
         
         # Create a custom confusion matrix plot for Fashion-MNIST with class names
         preds = model.predict(X_test)
@@ -125,9 +114,7 @@ def test_model(args):
         plt.tight_layout()
         plt.show()
         plt.close()
-        
-        # print(f"Confusion matrix saved to {cm_path}")
-    
+            
     # Show training history if available
     if hasattr(model, 'train_loss_history') and model.train_loss_history:
         print("\\nPlotting training history...")
@@ -156,26 +143,4 @@ def test_model(args):
             per_class_accuracy[class_name] = accuracy
 
     
-    return test_accuracy, test_loss
-
-def main():
-    args = parse_arguments()
-    
-    # Test the model
-    try:
-        result = test_model(args)
-        if result is None or result == (None, None):
-            print("\nTesting failed - see errors above.")
-            return 1
-            
-        test_accuracy, test_loss = result
-        print(f"\nTesting completed successfully!")
-        print(f"{bold_text}Final results: Accuracy = {test_accuracy:.4f}, Loss = {test_loss:.4f}{reset_text}")
-    except Exception as e:
-        print(f"Error during testing: {e}")
-        return 1
-    
-    return 0
-
-if __name__ == "__main__":
-    exit(main())
+    return 
