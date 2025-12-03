@@ -43,11 +43,12 @@ def test_model(args):
     from model_cifar_10 import FFNN
     # Fallback to regular loading with manual parameters
     model = FFNN.load_model(args.model_path,
-        activation='leaky_relu',
+        activation='relu',
         optimizer='adam',
-        weight_init='xavier',
+        weight_init='random',
         dropout_prob=0.3,
-        batch_size=128
+        batch_size=128,
+        batch_norm=True
     )
     print("Loaded with manual parameters")
 
@@ -55,6 +56,12 @@ def test_model(args):
         # Load test data
         data_loader = DataLoaderFashionMNIST()
         (X_train, y_train), (X_val, y_val), (X_test, y_test) = data_loader.get_data()
+        if args.standardize:
+            mean = np.mean(X_train, axis=0)
+            std = np.std(X_train, axis=0) + 1e-8  # Add small value to avoid division by zero
+            X_train = (X_train - mean) / std
+            X_val = (X_val - mean) / std
+            X_test = (X_test - mean) / std
             
     except Exception as e:
         print(f"Error loading test data: {e}")

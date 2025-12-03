@@ -10,7 +10,7 @@ import os
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
 class FFNN:
-    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=5):
+    def __init__(self, num_epochs, hidden_layers, lr, optimizer, batch_size, l2_coeff, weight_init, activation, _loss, input_size=3072, output_size=10, batch_norm=False, dropout_prob=0.0,patience=10):
         self.num_epochs = num_epochs
         self.hidden_layers = hidden_layers  # Now a list like [512, 128, 64]
         self.num_hidden_layers = len(hidden_layers)  # Number of layers derived from list length
@@ -523,14 +523,14 @@ class FFNN:
             # Store training metrics
             self.train_loss_history.append(avg_loss)
             self.train_acc_history.append(train_accuracy)
-            if (epoch+1) % 5 == 0:
+            if (epoch+1) % 2 == 0:
                 print(f"Epoch {epoch+1}/{self.num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
             wandb.log({"train_loss": avg_loss, "train_accuracy": train_accuracy})
             
             # Validate if validation data is provided
             if X_val is not None and y_val is not None:
                 val_accuracy, val_loss = self.validate(X_val, y_val)
-                if (epoch+1) % 5 == 0:
+                if (epoch+1) % 2 == 0:
                     print(f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
                 # Store validation metrics
                 self.val_loss_history.append(val_loss)

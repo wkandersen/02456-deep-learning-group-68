@@ -41,11 +41,13 @@ def test_model(args):
     from model_cifar_10 import FFNN
     # Fallback to regular loading with manual parameters
     model = FFNN.load_model(args.model_path,
-        activation='leaky_relu',
+        activation='relu',
         optimizer='adam',
-        weight_init='xavier',
-        dropout_prob=0.2,
-        batch_size=64
+        weight_init='random',
+        dropout_prob=0.5,
+        batch_size=128,
+        standardize=True,
+        batch_norm=True
     )
     print("Loaded with manual parameters")
 
