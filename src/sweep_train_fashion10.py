@@ -103,4 +103,5 @@ if __name__ == "__main__":
     sweep_id = wandb.sweep(sweep=sweep_configuration, project=project_name)
     
     # Run sweep agents
-    wandb.agent(sweep_id, function=sweep_objective, count=50)  # Run 50 trials
+    wandb.agent(sweep_id, function=sweep_objective, count=100)  # Run 50 trials
+    

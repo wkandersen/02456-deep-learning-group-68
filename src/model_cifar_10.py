@@ -113,39 +113,51 @@ class FFNN:
     
     def _batch_norm_backward(self, dout, cache, layer_idx, eps=1e-5):
         """
-        Backward pass for batch normalization
-        
+        Correct backward pass for batch normalization.
+        Matches PyTorch/TensorFlow mathematics.
+
         Args:
-            dout: Gradient of loss w.r.t. output of batch norm
-            cache: Cache from forward pass containing z_norm, mu, var
+            dout: Gradient of loss w.r.t. batch norm output (shape: (m, features))
+            cache: Dictionary containing z_norm, mu, var, and the original input x
             layer_idx: Layer index for accessing gamma/beta
-            eps: Small constant for numerical stability
+            eps: Numerical stability constant
         """
-        z_norm = cache['z_norm']
-        mu = cache['mu']
-        var = cache['var']
-        
+        z_norm = cache['z_norm']             # normalized values
+        mu     = cache['mu']                 # batch mean
+        var    = cache['var']                # batch variance
+        x      = cache['x']                  # original pre-BN activations
+
         m = dout.shape[0]  # batch size
-        
-        # Gradient w.r.t. gamma and beta
+
+        # ----- 1) Gradients w.r.t. gamma and beta -----
         d_gamma = np.sum(dout * z_norm, axis=0, keepdims=True)
-        d_beta = np.sum(dout, axis=0, keepdims=True)
-        
-        # Gradient w.r.t. normalized input
-        d_z_norm = dout * self.bn_gamma[layer_idx]
-        
-        # Gradient w.r.t. variance
-        d_var = np.sum(d_z_norm * (cache['z_norm'] * -0.5 * (var + eps)**(-1.5)), axis=0, keepdims=True)
-        
-        # Gradient w.r.t. mean
-        d_mu = np.sum(d_z_norm * (-1.0 / np.sqrt(var + eps)), axis=0, keepdims=True)
-        d_mu += d_var * np.mean(-2.0 * (z_norm * np.sqrt(var + eps) + mu - mu), axis=0, keepdims=True)
-        
-        # Gradient w.r.t. input
-        dx = d_z_norm / np.sqrt(var + eps)
-        dx += d_var * 2.0 * (z_norm * np.sqrt(var + eps) + mu - mu) / m
-        dx += d_mu / m
-        
+        d_beta  = np.sum(dout,            axis=0, keepdims=True)
+
+        # ----- 2) Backprop through scale+shift -----
+        dz = dout * self.bn_gamma[layer_idx]   # (m, features)
+
+        # ----- 3) Gradients w.r.t variance -----
+        x_mu = x - mu                          # (m, features)
+        std_inv = 1.0 / np.sqrt(var + eps)     # (1, features)
+
+        d_var = np.sum(
+            dz * x_mu * -0.5 * (var + eps)**(-3/2),
+            axis=0, keepdims=True
+        )
+
+        # ----- 4) Gradients w.r.t. mean -----
+        d_mu = (
+            np.sum(dz * -std_inv, axis=0, keepdims=True) +
+            d_var * np.sum(-2.0 * x_mu, axis=0, keepdims=True) / m
+        )
+
+        # ----- 5) Gradients w.r.t. input -----
+        dx = (
+            dz * std_inv +
+            d_var * 2.0 * x_mu / m +
+            d_mu / m
+        )
+
         return dx, d_gamma, d_beta
     
     def _dropout(self, X, drop_prob):
@@ -180,46 +192,53 @@ class FFNN:
             return dx
 
     def forward(self, X, training=True):
-        # Ensure training is a boolean value
         training = bool(training)
         
         self.activations = []
-        self.z_values = []
-        self.bn_cache = []  # Store batch norm intermediate values for backprop
-        self.dropout_masks = []  # Store dropout masks for backprop
+        self.z_values = []      # STORE RAW PRE-ACTIVATIONS HERE
+        self.bn_cache = []      
+        self.dropout_masks = []
+
         a = X
-        assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
         self.activations.append(a)
 
-        # Forward pass through hidden layers
+        # Hidden layers
         for i in range(self.num_hidden_layers):
+
+            # 1. Linear pre-activation
             z = np.dot(a, self.weights[i]) + self.biases[i]
-            
-            # Apply batch normalization if enabled
+            raw_z = z.copy()             # <-- SAVE FOR BACKWARD PASS
+            self.z_values.append(raw_z)  # <-- MUST STORE RAW z
+
+            # 2. Batch normalization
             if self.batch_norm:
-                z, z_norm, mu, var = self._batch_normalize(z, i, training)
-                self.bn_cache.append({'z_norm': z_norm, 'mu': mu, 'var': var})
+                out, z_norm, mu, var = self._batch_normalize(z, i, training)
+                self.bn_cache.append({
+                    'x': raw_z,
+                    'z_norm': z_norm,
+                    'mu': mu,
+                    'var': var
+                })
+                z = out    # BN output goes into activation
             else:
                 self.bn_cache.append(None)
-                
-            self.z_values.append(z)
-            
-            # Apply activation
+
+            # 3. Activation
             a = self._activation(z)
-            
-            # Only apply dropout during training
+
+            # 4. Dropout (training only)
             if self.dropout_prob > 0 and training:
                 a, mask = self._dropout(a, self.dropout_prob)
                 self.dropout_masks.append(mask)
             else:
                 self.dropout_masks.append(None)
-                
+
             self.activations.append(a)
-        
-        # Output layer (no batch norm, no dropout)
+
+        # Output layer (no BN or dropout)
         z = np.dot(a, self.weights[-1]) + self.biases[-1]
-        self.z_values.append(z)
-        self.activations.append(z)  # No activation function at output layer
+        self.z_values.append(z)       # Store raw pre-activation
+        self.activations.append(z)    # Output has no activation
         return z
     
     def compute_loss(self, predictions, targets):
@@ -533,9 +552,10 @@ class FFNN:
                 self.val_acc_history.append(None)
 
     def validate(self, X_val, y_val):
-        preds = self.predict(X_val)
+        logits = self.forward(X_val, training=False)
+        preds = np.argmax(np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True), axis=1)
         accuracy = np.mean(preds == y_val)
-        loss = self.compute_loss(self.forward(X_val, training=False), y_val)
+        loss = self.compute_loss(logits, y_val)
         wandb.log({"val_loss": loss, "val_accuracy": accuracy})
         return accuracy, loss
 

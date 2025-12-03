@@ -10,60 +10,55 @@ class FashionFFNN(FFNN):
         super(FashionFFNN, self).__init__(*args, **kwargs)
     
     def forward(self, X, training=True):
-        # Ensure training is a boolean value
         training = bool(training)
-        
-        # Clear all instance variables to start fresh
+
         self.activations = []
         self.z_values = []
-        self.bn_cache = []  # Store batch norm intermediate values for backprop
-        self.dropout_masks = []  # Store dropout masks for backprop
-        
-        # Ensure input is numpy array
+        self.bn_cache = []
+        self.dropout_masks = []
+
         a = np.asarray(X)
-        assert a.shape[1] == self.input_size, f"Expected input size {self.input_size}, but got {a.shape[1]}"
+        assert a.shape[1] == self.input_size
         self.activations.append(a)
 
-        # Forward pass through hidden layers
+        # Hidden layers
         for i in range(self.num_hidden_layers):
-            # Linear transformation
+
+            # 1. Linear pre-activation
             z = np.dot(a, self.weights[i]) + self.biases[i]
-            z = np.asarray(z)  # Ensure numpy array
-            
-            # Apply batch normalization if enabled
+            raw_z = z.copy()              # save original z BEFORE BN
+            self.z_values.append(raw_z)   # store raw z for activation derivative
+
+            # 2. Batch Normalization
             if self.batch_norm:
-                z_bn, z_norm, mu, var = self._batch_normalize(z, i, training)
-                # Ensure all batch norm outputs are numpy arrays
-                z_bn = np.asarray(z_bn)
-                z_norm = np.asarray(z_norm)
-                mu = np.asarray(mu)
-                var = np.asarray(var)
-                # Store both the original z and the batch norm outputs for backprop
-                self.bn_cache.append({'z_norm': z_norm, 'mu': mu, 'var': var, 'z_input': z})
-                z = z_bn  # Use the batch normalized values
+                out, z_norm, mu, var = self._batch_normalize(z, i, training)
+
+                self.bn_cache.append({
+                    'x': raw_z,           # MUST match BN backward
+                    'z_norm': z_norm,
+                    'mu': mu,
+                    'var': var
+                })
+
+                z = out
             else:
                 self.bn_cache.append(None)
-                
-            self.z_values.append(z)
-            
-            # Apply activation
+
+            # 3. Activation
             a = self._activation(z)
-            a = np.asarray(a)  # Ensure numpy array after activation
-            
-            # Only apply dropout during training
+
+            # 4. Dropout
             if self.dropout_prob > 0 and training:
-                a_dropped, mask = self._dropout(a, self.dropout_prob)
-                a = np.asarray(a_dropped)  # Ensure result is numpy array
+                a, mask = self._dropout(a, self.dropout_prob)
                 self.dropout_masks.append(mask)
             else:
                 self.dropout_masks.append(None)
-                
-            # Final guarantee that we store a numpy array
-            self.activations.append(np.asarray(a))
-        
-        # Output layer (no batch norm, no dropout)
+
+            self.activations.append(a)
+
+        # Output layer
         z = np.dot(a, self.weights[-1]) + self.biases[-1]
-        z = np.asarray(z)  # Ensure numpy array
         self.z_values.append(z)
-        self.activations.append(z)  # No activation function at output layer
+        self.activations.append(z)
+
         return z
