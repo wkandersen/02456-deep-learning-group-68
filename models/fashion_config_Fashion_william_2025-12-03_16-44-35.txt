@@ -1,0 +1,20 @@
+Fashion-MNIST Model Configuration
+========================================
+Model file: fashion_model_Fashion_william_2025-12-03_16-44-35.pkl
+Test accuracy: 0.8960
+Architecture: 784 -> 1024 -> 512 -> 256 -> 10
+Activation: relu
+Optimizer: adam
+Learning rate: 0.00012467720929682245
+Batch size: 128
+L2 coefficient: 1.53103741917564e-05
+Dropout probability: 0.3
+Batch normalization: True
+Weight initialization: random
+Loss function: cross_entropy
+Epochs trained: 30
+Final training loss: 0.1648
+Final training accuracy: 0.9554
+Final validation loss: 0.3037
+Final validation accuracy: 0.9007
+Best validation accuracy: 0.9052

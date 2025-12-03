@@ -1,0 +1,20 @@
+CIFAR-10 Model Configuration
+========================================
+Model file: cifar10_model_CIFAR10_william_2025-12-03_18-23-22.pkl
+Test accuracy: 0.5665
+Architecture: 3072 -> 1024 -> 512 -> 256 -> 10
+Activation: relu
+Optimizer: adam
+Learning rate: 0.00033561349020420233
+Batch size: 128
+L2 coefficient: 1.654366855901433e-05
+Dropout probability: 0.5
+Batch normalization: True
+Weight initialization: random
+Loss function: cross_entropy
+Epochs trained: 43
+Final training loss: 1.2089
+Final training accuracy: 0.7361
+Final validation loss: 1.2843
+Final validation accuracy: 0.5758
+Best validation accuracy: 0.5764
