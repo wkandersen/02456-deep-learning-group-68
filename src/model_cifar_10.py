@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import wandb
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import seaborn as sns
+import pickle
+import os
 
 ### Feedforward Neural Network class without the use of deep learning frameworks ###
 
@@ -723,4 +725,263 @@ class FFNN:
             wandb.log({f"gradients/layer_{i}": np.linalg.norm(grad)})
         for i, grad_b in enumerate(db):
             wandb.log({f"gradients/bias_layer_{i}": np.linalg.norm(grad_b)})
+    
+    def save_model(self, filepath):
+        """
+        Save the trained model to a file.
+        
+        Args:
+            filepath (str): Path where to save the model
+        """
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        # Prepare model state dictionary
+        model_state = {
+            'weights': self.weights,
+            'biases': self.biases,
+            'config': {
+                'num_epochs': self.num_epochs,
+                'hidden_layers': self.hidden_layers,
+                'lr': self.lr,
+                'optimizer': self.optimizer,
+                'batch_size': self.batch_size,
+                'l2_coeff': self.l2_coeff,
+                'weight_init': self.weight_init,
+                'activation': self.activation,
+                '_loss': self._loss,
+                'input_size': self.input_size,
+                'output_size': self.output_size,
+                'batch_norm': self.batch_norm,
+                'dropout_prob': self.dropout_prob,
+                'patience': self.patience
+            },
+            'training_history': {
+                'train_loss_history': self.train_loss_history,
+                'val_loss_history': self.val_loss_history,
+                'train_acc_history': self.train_acc_history,
+                'val_acc_history': self.val_acc_history
+            }
+        }
+        
+        # Add batch normalization parameters if enabled
+        if self.batch_norm:
+            model_state['bn_gamma'] = self.bn_gamma
+            model_state['bn_beta'] = self.bn_beta
+            model_state['bn_running_mean'] = self.bn_running_mean
+            model_state['bn_running_var'] = self.bn_running_var
+        
+        # Add optimizer state if Adam
+        if self.optimizer == 'adam' and hasattr(self, 'v_dW'):
+            model_state['optimizer_state'] = {
+                'v_dW': self.v_dW,
+                'v_db': self.v_db,
+                's_dW': self.s_dW,
+                's_db': self.s_db,
+                't': self.t
+            }
+            
+            if self.batch_norm:
+                model_state['optimizer_state'].update({
+                    'v_bn_gamma': self.v_bn_gamma,
+                    'v_bn_beta': self.v_bn_beta,
+                    's_bn_gamma': self.s_bn_gamma,
+                    's_bn_beta': self.s_bn_beta
+                })
+        
+        # Save to file
+        with open(filepath, 'wb') as f:
+            pickle.dump(model_state, f)
+        
+        print(f"Model saved to {filepath}")
+    
+    @classmethod
+    def load_model(cls, filepath, **legacy_params):
+        """
+        Load a trained model from a file.
+        Handles both new format (with config) and old format (weights only).
+        
+        Args:
+            filepath (str): Path to the saved model file
+            **legacy_params: Optional parameters for old format models (activation, optimizer, etc.)
+            
+        Returns:
+            FFNN: Loaded model instance
+        """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Model file not found: {filepath}")
+        
+        # Load model state
+        with open(filepath, 'rb') as f:
+            model_state = pickle.load(f)
+        
+        # Check if this is the new format (with config) or old format (weights only)
+        if 'config' in model_state:
+            # New format - has configuration
+            config = model_state['config']
+            
+            # Create new model instance with saved configuration
+            model = cls(
+                num_epochs=config['num_epochs'],
+                hidden_layers=config['hidden_layers'],
+                lr=config['lr'],
+                optimizer=config['optimizer'],
+                batch_size=config['batch_size'],
+                l2_coeff=config['l2_coeff'],
+                weight_init=config['weight_init'],
+                activation=config['activation'],
+                _loss=config['_loss'],
+                input_size=config['input_size'],
+                output_size=config['output_size'],
+                batch_norm=config['batch_norm'],
+                dropout_prob=config['dropout_prob'],
+                patience=config['patience']
+            )
+            
+            # Load training history
+            if 'training_history' in model_state:
+                history = model_state['training_history']
+                model.train_loss_history = history['train_loss_history']
+                model.val_loss_history = history['val_loss_history']
+                model.train_acc_history = history['train_acc_history']
+                model.val_acc_history = history['val_acc_history']
+            
+            # Load optimizer state if it exists
+            if 'optimizer_state' in model_state:
+                opt_state = model_state['optimizer_state']
+                model.v_dW = opt_state['v_dW']
+                model.v_db = opt_state['v_db']
+                model.s_dW = opt_state['s_dW']
+                model.s_db = opt_state['s_db']
+                model.t = opt_state['t']
+                
+                if model.batch_norm and 'v_bn_gamma' in opt_state:
+                    model.v_bn_gamma = opt_state['v_bn_gamma']
+                    model.v_bn_beta = opt_state['v_bn_beta']
+                    model.s_bn_gamma = opt_state['s_bn_gamma']
+                    model.s_bn_beta = opt_state['s_bn_beta']
+            
+        else:
+            # Old format or weights-only format
+            # Try to infer model architecture from weights
+            if 'weights' not in model_state:
+                raise ValueError("Invalid model file: no weights found")
+            
+            weights = model_state['weights']
+            biases = model_state['biases']
+            
+            # Infer architecture from weights
+            input_size = weights[0].shape[0]
+            output_size = weights[-1].shape[1]
+            hidden_layers = []
+            
+            for i in range(len(weights) - 1):
+                hidden_layers.append(weights[i].shape[1])
+            
+            # Check if batch norm parameters exist
+            has_batch_norm = 'bn_gamma' in model_state
+            
+            # Use provided parameters or defaults
+            activation = legacy_params.get('activation', 'leaky_relu')  # Changed default to leaky_relu
+            optimizer = legacy_params.get('optimizer', 'adam')
+            lr = legacy_params.get('lr', 0.001)
+            batch_size = legacy_params.get('batch_size', 64)
+            l2_coeff = legacy_params.get('l2_coeff', 0.0001)
+            weight_init = legacy_params.get('weight_init', 'xavier')  # Changed default to xavier
+            _loss = legacy_params.get('_loss', 'cross_entropy')
+            dropout_prob = legacy_params.get('dropout_prob', 0.0)
+            
+
+            model = cls(
+                num_epochs=100,  # Default values since we don't have config
+                hidden_layers=hidden_layers,
+                lr=lr,
+                optimizer=optimizer,
+                batch_size=batch_size,
+                l2_coeff=l2_coeff,
+                weight_init=weight_init,
+                activation=activation,
+                _loss=_loss,
+                input_size=input_size,
+                output_size=output_size,
+                batch_norm=has_batch_norm,
+                dropout_prob=dropout_prob,
+                patience=5
+            )
+        
+        # Load weights and biases (both formats have these)
+        model.weights = model_state['weights']
+        model.biases = model_state['biases']
+        
+        # Load batch normalization parameters if they exist
+        if 'bn_gamma' in model_state:
+            model.bn_gamma = model_state['bn_gamma']
+            model.bn_beta = model_state['bn_beta']
+            model.bn_running_mean = model_state['bn_running_mean']
+            model.bn_running_var = model_state['bn_running_var']
+        
+        print(f"Model loaded from {filepath}")
+        return model
+    
+    def save_weights_only(self, filepath):
+        """
+        Save only weights and biases (lightweight save).
+        
+        Args:
+            filepath (str): Path where to save the weights
+        """
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        weights_state = {
+            'weights': self.weights,
+            'biases': self.biases
+        }
+        
+        if self.batch_norm:
+            weights_state.update({
+                'bn_gamma': self.bn_gamma,
+                'bn_beta': self.bn_beta,
+                'bn_running_mean': self.bn_running_mean,
+                'bn_running_var': self.bn_running_var
+            })
+        
+        with open(filepath, 'wb') as f:
+            pickle.dump(weights_state, f)
+        
+        print(f"Weights saved to {filepath}")
+    
+    def load_weights_only(self, filepath):
+        """
+        Load only weights and biases into an existing model.
+        Model architecture must match the saved weights.
+        
+        Args:
+            filepath (str): Path to the saved weights file
+        """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Weights file not found: {filepath}")
+        
+        with open(filepath, 'rb') as f:
+            weights_state = pickle.load(f)
+        
+        # Verify weight shapes match
+        if len(weights_state['weights']) != len(self.weights):
+            raise ValueError("Number of layers in saved weights doesn't match current model")
+        
+        for i, (saved_w, current_w) in enumerate(zip(weights_state['weights'], self.weights)):
+            if saved_w.shape != current_w.shape:
+                raise ValueError(f"Weight shape mismatch at layer {i}: saved {saved_w.shape}, current {current_w.shape}")
+        
+        # Load weights and biases
+        self.weights = weights_state['weights']
+        self.biases = weights_state['biases']
+        
+        # Load batch norm parameters if they exist and model has batch norm
+        if self.batch_norm and 'bn_gamma' in weights_state:
+            self.bn_gamma = weights_state['bn_gamma']
+            self.bn_beta = weights_state['bn_beta']
+            self.bn_running_mean = weights_state['bn_running_mean']
+            self.bn_running_var = weights_state['bn_running_var']
+        
+        print(f"Weights loaded from {filepath}")
   

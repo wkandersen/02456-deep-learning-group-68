@@ -68,6 +68,14 @@ def parse_arguments():
     parser.add_argument('--save_plots', type=str, default='Plots',
                         help='Directory to save plots')
     
+    # Model saving
+    parser.add_argument('--save_model', action='store_true',
+                        help='Save trained model to file')
+    parser.add_argument('--model_save_dir', type=str, default='models',
+                        help='Directory to save models (default: models)')
+    parser.add_argument('--save_weights_only', action='store_true',
+                        help='Save only weights and biases (lighter file)')
+    
     return parser.parse_args()
 
 def train(args=None):
@@ -170,6 +178,60 @@ def train(args=None):
     
     if not args.no_wandb:
         wandb.log({"final_test_accuracy": test_accuracy})
+    
+    # Save model if requested
+    if args.save_model:
+        # Create model save directory
+        os.makedirs(args.model_save_dir, exist_ok=True)
+        
+        # Generate model filename
+        model_filename = f"cifar10_model_{experiment_name}.pkl"
+        model_path = os.path.join(args.model_save_dir, model_filename)
+        
+        try:
+            if args.save_weights_only:
+                model.save_weights_only(model_path)
+                print(f"Model weights saved to: {model_path}")
+            else:
+                model.save_model(model_path)
+                print(f"Complete model saved to: {model_path}")
+                
+            # Also save model configuration as text for reference
+            config_filename = f"cifar10_config_{experiment_name}.txt"
+            config_path = os.path.join(args.model_save_dir, config_filename)
+            
+            with open(config_path, 'w') as f:
+                f.write(f"CIFAR-10 Model Configuration\n")
+                f.write(f"{'='*40}\n")
+                f.write(f"Model file: {model_filename}\n")
+                f.write(f"Test accuracy: {test_accuracy:.4f}\n")
+                f.write(f"Architecture: {model.input_size} -> {' -> '.join(map(str, model.hidden_layers))} -> {model.output_size}\n")
+                f.write(f"Activation: {model.activation}\n")
+                f.write(f"Optimizer: {model.optimizer}\n")
+                f.write(f"Learning rate: {model.lr}\n")
+                f.write(f"Batch size: {model.batch_size}\n")
+                f.write(f"L2 coefficient: {model.l2_coeff}\n")
+                f.write(f"Dropout probability: {model.dropout_prob}\n")
+                f.write(f"Batch normalization: {model.batch_norm}\n")
+                f.write(f"Weight initialization: {model.weight_init}\n")
+                f.write(f"Loss function: {model._loss}\n")
+                f.write(f"Epochs trained: {len(model.train_loss_history)}\n")
+                
+                if model.train_loss_history:
+                    f.write(f"Final training loss: {model.train_loss_history[-1]:.4f}\n")
+                    f.write(f"Final training accuracy: {model.train_acc_history[-1]:.4f}\n")
+                
+                val_losses = [loss for loss in model.val_loss_history if loss is not None]
+                val_accs = [acc for acc in model.val_acc_history if acc is not None]
+                if val_losses:
+                    f.write(f"Final validation loss: {val_losses[-1]:.4f}\n")
+                    f.write(f"Final validation accuracy: {val_accs[-1]:.4f}\n")
+                    f.write(f"Best validation accuracy: {max(val_accs):.4f}\n")
+            
+            print(f"Model configuration saved to: {config_path}")
+            
+        except Exception as e:
+            print(f"Error saving model: {e}")
         
     return model, test_accuracy
 
