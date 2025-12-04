@@ -224,8 +224,10 @@ if __name__ == "__main__":
         plt.show()
 
     if dataset_choice.lower() == "fashion":
-        plt.imshow(X_train[0], cmap='gray')
+        img = X_train[0].reshape(28, 28) # Reshape back from flattened image.
+        plt.imshow(img, cmap='gray', interpolation='nearest', vmin=0, vmax=1) 
         first_label = y_train[0]
         class_name = class_names[first_label]
         plt.title(f"Class {first_label}: {class_name}")
+        plt.axis('off')
         plt.show()
