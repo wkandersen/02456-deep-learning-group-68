@@ -4,4 +4,4 @@
 
 ## Usage:
 
-### It can be run from the notebook `notebook.ipynb`, which can run a training cycle or it can be used to run a saved model (recommended). The notebook reproduces the results from our best models.
+### It can be run from the notebook `src/notebook.ipynb`, which can run a training cycle or it can be used to run a saved model (recommended). The notebook reproduces the results from our best models.
