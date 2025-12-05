@@ -120,7 +120,6 @@ def test_model(args):
         plt.show()
         plt.close()
         
-        # print(f"Confusion matrix saved to {cm_path}")
     
     # Show training history if available
     if hasattr(model, 'train_loss_history') and model.train_loss_history:

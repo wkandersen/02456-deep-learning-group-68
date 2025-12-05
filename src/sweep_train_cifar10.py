@@ -36,9 +36,8 @@ def sweep_objective():
     run = wandb.init()
     config = wandb.config
 
-    # Get parameters from wandb config (from config.yaml)
     num_epochs = config.num_epochs
-    hidden_layers = config.n_hidden_units  # This will be one of the lists from config.yaml
+    hidden_layers = config.n_hidden_units 
     lr = config.learning_rate
     optimizer = config.optimizer
     batch_size = config.batch_size

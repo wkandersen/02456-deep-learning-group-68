@@ -115,8 +115,7 @@ class FFNN:
     
     def _batch_norm_backward(self, dout, cache, layer_idx, eps=1e-5):
         """
-        Correct backward pass for batch normalization.
-        Matches PyTorch/TensorFlow mathematics.
+        Backward pass for batch normalization.
 
         Args:
             dout: Gradient of loss w.r.t. batch norm output (shape: (m, features))
@@ -197,7 +196,7 @@ class FFNN:
         training = bool(training)
         
         self.activations = []
-        self.z_values = []      # STORE RAW PRE-ACTIVATIONS HERE
+        self.z_values = []      
         self.bn_cache = []      
         self.dropout_masks = []
 
@@ -209,8 +208,8 @@ class FFNN:
 
             # 1. Linear pre-activation
             z = np.dot(a, self.weights[i]) + self.biases[i]
-            raw_z = z.copy()             # <-- SAVE FOR BACKWARD PASS
-            self.z_values.append(raw_z)  # <-- MUST STORE RAW z
+            raw_z = z.copy()             
+            self.z_values.append(raw_z)
 
             # 2. Batch normalization
             if self.batch_norm:
@@ -239,8 +238,8 @@ class FFNN:
 
         # Output layer (no BN or dropout)
         z = np.dot(a, self.weights[-1]) + self.biases[-1]
-        self.z_values.append(z)       # Store raw pre-activation
-        self.activations.append(z)    # Output has no activation
+        self.z_values.append(z)       
+        self.activations.append(z)    
         return z
     
     def compute_loss(self, predictions, targets):
@@ -269,9 +268,6 @@ class FFNN:
                 l2_penalty = self.l2_coeff * sum(np.sum(w**2) for w in self.weights)
                 loss += l2_penalty
                 
-        # elif self._loss == 'mse':
-        #     # Use the existing MSE loss function
-        #     loss = self.loss_function.compute_MSE_loss(predictions, targets, self.weights)
         else:
             raise ValueError(f"Unsupported loss function: {self._loss}")
         
@@ -316,16 +312,9 @@ class FFNN:
             exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
             probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
             dZ = probs - y_one_hot
-        elif self._loss == 'mse':
-            # For MSE loss, gradient is: predictions - y_one_hot
-            # Note: This assumes no activation on output layer for regression
-            # For classification with MSE, you might want softmax first
-            dZ = predictions - y_one_hot
+
         else:
-            # Default fallback - assume cross-entropy
-            exp_scores = np.exp(predictions - np.max(predictions, axis=1, keepdims=True))
-            probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-            dZ = probs - y_one_hot
+            raise ValueError(f"Unsupported loss function: {self._loss}")
         
         # Backpropagate through all layers
         for i in reversed(range(len(self.weights))):

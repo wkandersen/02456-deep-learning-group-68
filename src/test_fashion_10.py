@@ -39,9 +39,7 @@ def test_model(args):
     
 
     # Load the trained model using the parent FFNN class
-    # Since FashionFFNN inherits from FFNN, we can load it as FFNN
     from model_cifar_10 import FFNN
-    # Fallback to regular loading with manual parameters
     model = FFNN.load_model(args.model_path,
         activation='relu',
         optimizer='adam',
